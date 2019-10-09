@@ -1,0 +1,106 @@
+# SPAMS 2.6.1 and python
+
+This directory contains files to install and use (at the end) the python interfaces
+to the functions of the SPAMS library (originally interfaced with Matlab).
+
+---
+
+Author:
+* Julien Mairal (Inria) with the collaboration of Francis Bach (Inria),
+  Jean Ponce (Ecole Normale Sup\'erieure), Guillermo Sapiro
+  (University of Minnesota), Guillaume Obozinski (Inria) and
+  Rodolphe Jenatton (Inria).
+
+Credit:
+* R and Python interfaces by Jean-Paul Chieze (Inria).
+* Archetypal analysis implementation by Yuansi Chen (internship at Inria),
+  with the collaboration of Zaid Harchaoui.
+
+Maintenance:
+* Starting from version 2.6 (especially porting to R-3.x and Python-3.x),
+development and maintenance are done by Ghislain Durif (Inria).
+
+Licence: GPL v3
+
+---
+
+Manipulated objects are imported from numpy and scipy. Matrices should be stored by columns, and sparse matrices should be "column compressed".
+
+This version is specifically designed to be used with the Anaconda python distribution (https://anaconda.org/anaconda/python) and benefits from the MKL Intel library (available with Anaconda).
+
+The python SPAMS package consists of 4 files:
+* `spams.py`
+* `myscipy_rand.py`
+* `spams_wrap.py`
+* `_spams_wrap.so`
+
+that should be in the path of the python interpreter (for instance in the current directory).
+
+**NOTE:** myscipy_rand.py supplies a random generator for sparse matrix
+      for some old scipy distributions
+
+**WARNING:** the API of spams.OMP and spams.OMPMask has changed since version V2.2
+
+Available functions in python are defined in `spams.py` and documented (the doc is extracted from matlab files).
+
+This file describes how to directly install the interface from sources. More details are given
+in the file [INSTALL-package](./INSTALL-package).
+
+Porting to python3.x is based on https://aur.archlinux.org/packages/python-spams-svn/
+
+## INTERFACE INSTALLATION (python3.x) for LINUX and MacOS
+
+### Installation
+
+Packages required: python-numpy, python-scipy, anaconda or miniconda. <br>
+
+Create a virtual environment and install required packages with conda:
+```bash
+conda create -n spams
+source activate spams
+conda install -c intel mkl # generally not necessary because already included in anaconda
+conda install numpy scipy six
+```
+
+Install from sources:
+```bash
+tar zxf spams-python.anaconda-v2.6.1-2017-12-08.tar.gz
+cd spams-2.6.1
+python setup.py build
+
+inst=<your-python-install-dir>
+python setup.py install --prefix=$inst
+```
+
+Two documentations are installed in `$inst/doc`:
+* doc_spams.pdf and html/index.html : the detailed user documentation
+* sphinx/index.html : the documentation of python function extracted by sphinx
+
+### Testing the interface :
+
+```bash
+PYV=`python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)";` # get python current version
+export PYTHONPATH=$inst/lib/python${PYV}/site-packages
+cd $inst/test
+python test_spams.py -h # to get help
+python test_spams.py  # will run all the tests
+python test_spams.py linalg # test of linalg functions
+python test_spams.py name1 name2 ... # run named tests
+```
+
+### Comments
+
+#### Linux:
+Tested with Anaconda2-5.0.1 and Anaconda3-5.0.1
+
+#### MacOS:
+TODO
+
+## INTERFACE INSTALLATION for Windows
+TODO
+
+### Installation of the binary windows packages
+TODO
+
+### Testing the interface (binary install)
+TODO

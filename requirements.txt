@@ -1,0 +1,17 @@
+tensorflow-gpu==1.7
+keras==2.2.4
+torch==1.0.0
+scikit-image
+openslide-python
+numpy==1.14.5
+opencv-python==4.1.0.25
+spams==2.6.1
+scipy
+Pillow
+cython
+matplotlib
+scikit-image
+h5py
+ipython
+lxml
+progressbar

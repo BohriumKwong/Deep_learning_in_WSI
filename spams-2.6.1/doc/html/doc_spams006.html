@@ -1,0 +1,2203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.23">
+
+<META name="Author" content="Julien Mairal">
+<link rel="stylesheet" href="doc_spams.css"><link rel="stylesheet" type="text/css" href="doc_spams.css">
+<title>Proximal Toolbox</title>
+</head>
+<body>
+<a href="doc_spams005.html"><img src="previous_motif.gif" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.gif" alt="Up"></a>
+<a href="doc_spams007.html"><img src="next_motif.gif" alt="Next"></a>
+<hr>
+<h2 class="section" id="sec23">5  Proximal Toolbox</h2>
+<ul>
+<li><a href="doc_spams006.html#sec24">Regularization Functions</a>
+</li><li><a href="doc_spams006.html#sec25">Function spams.proximalFlat</a>
+</li><li><a href="doc_spams006.html#sec26">Function spams.proximalTree</a>
+</li><li><a href="doc_spams006.html#sec27">Function spams.proximalGraph</a>
+</li><li><a href="doc_spams006.html#sec28">Function spams.proximalPathCoding</a>
+</li><li><a href="doc_spams006.html#sec29">Function spams.evalPathCoding</a>
+</li><li><a href="doc_spams006.html#sec30">Problems Addressed</a>
+</li><li><a href="doc_spams006.html#sec37">Function spams.fistaFlat</a>
+</li><li><a href="doc_spams006.html#sec38">Function spams.fistaTree</a>
+</li><li><a href="doc_spams006.html#sec39">Function spams.fistaGraph</a>
+</li><li><a href="doc_spams006.html#sec40">Function spams.fistaPathCoding</a>
+</li><li><a href="doc_spams006.html#sec41">Function solverPoisson</a>
+</li><li><a href="doc_spams006.html#sec42">Function mexIncrementalProx</a>
+</li><li><a href="doc_spams006.html#sec43">Function mexStochasticProx</a>
+</li></ul>
+<p>
+The previous toolbox we have presented is well
+adapted for solving a large number of small and medium-scale sparse
+decomposition problems with the square loss, which is typical from the
+classical dictionary learning framework. We now present
+a new software package that is adapted for solving a wide range of
+possibly large-scale learning problems, with several combinations of losses and
+regularization terms. The method implements the proximal methods
+of [<a href="doc_spams010.html#beck">1</a>], and includes the proximal solvers for the tree-structured
+regularization of [<a href="doc_spams010.html#jenatton3">15</a>], and the solver of [<a href="doc_spams010.html#mairal10">22</a>] for
+general structured sparse regularization.
+The solver for structured sparse regularization norms includes a C++ max-flow
+implementation of the push-relabel algorithm of [<a href="doc_spams010.html#goldberg">13</a>], with
+heuristics proposed by [<a href="doc_spams010.html#cherkassky">5</a>].</p><p>This implementation also provides robust stopping criteria based on
+<em>duality gaps</em>, which are presented in Appendix <a href="doc_spams009.html#appendix">A</a>. It can handle intercepts (unregularized variables). The general formulation that our software
+can solve take the form
+</p><table class="display dcenter"><tr class="c016"><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">w</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> [<span class="c007">g</span>(<span class="c009">w</span>) </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c005">▵</span></td></tr>
+<tr><td class="dcell c012">=</td></tr>
+<tr><td class="dcell c012">&nbsp;</td></tr>
+</table></td><td class="dcell"> <span class="c007">f</span>(<span class="c009">w</span>) + λψ(<span class="c009">w</span>)],
+</td></tr>
+</table><p>
+where <span class="c007">f</span> is a smooth loss function and ψ is a regularization function.
+When one optimizes a matrix <span class="c009">W</span> in ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup> instead of
+a vector <span class="c009">w</span> in ℝ<sup><span class="c007">p</span></sup>, we will write
+</p><table class="display dcenter"><tr class="c016"><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">W</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup></td></tr>
+</table></td><td class="dcell"> [<span class="c007">g</span>(<span class="c009">W</span>) </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c005">▵</span></td></tr>
+<tr><td class="dcell c012">=</td></tr>
+<tr><td class="dcell c012">&nbsp;</td></tr>
+</table></td><td class="dcell"> <span class="c007">f</span>(<span class="c009">W</span>) + λψ(<span class="c009">W</span>)].
+</td></tr>
+</table><p>
+Note that the software can possibly handle nonnegativity constraints.</p><p>We start by presenting the type of regularization implemented in the software
+</p>
+<h3 class="subsection" id="sec24">5.1  Regularization Functions</h3>
+<p>
+Our software can handle the following regularization functions ψ for vectors <span class="c009">w</span> in ℝ<sup><span class="c007">p</span></sup>:
+</p><ul class="itemize"><li class="li-itemize">
+<span class="c010">The Tikhonov regularization</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> 1/2||<span class="c009">w</span>||<sub>2</sub><sup>2</sup>.
+</li><li class="li-itemize"><span class="c010">The </span>ℓ<sub>1</sub><span class="c010">-norm</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ||<span class="c009">w</span>||<sub>1</sub>.
+</li><li class="li-itemize"><span class="c010">The Elastic-Net</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ||<span class="c009">w</span>||<sub>1</sub>+γ||<span class="c009">w</span>||<sub>2</sub><sup>2</sup>.
+</li><li class="li-itemize"><span class="c010">The Fused-Lasso</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ||<span class="c009">w</span>||<sub>1</sub>+γ||<span class="c009">w</span>||<sub>2</sub><sup>2</sup>+γ<sub>2</sub>∑<sub><span class="c007">i</span>=1</sub><sup><span class="c007">p</span>−1</sup>|<span class="c009">w</span><sub><span class="c007">i</span>+1</sub>−<span class="c009">w</span><sub><span class="c007">i</span></sub>|.
+</li><li class="li-itemize"><span class="c010">The group Lasso</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">g</span> ∈ <span class="c008">G</span></sub> η<sub><span class="c007">g</span></sub> ||<span class="c009">w</span><sub><span class="c007">g</span></sub>||<sub>2</sub>, where <span class="c008">G</span> are groups of variables.
+</li><li class="li-itemize"><span class="c010">The group Lasso with </span>ℓ<sub>∞</sub><span class="c010">-norm</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">g</span> ∈ <span class="c008">G</span></sub> η<sub><span class="c007">g</span></sub> ||<span class="c009">w</span><sub><span class="c007">g</span></sub>||<sub>∞</sub>, where <span class="c008">G</span> are groups of variables.
+</li><li class="li-itemize"><span class="c010">The sparse group Lasso</span>: same as above but with an additional ℓ<sub>1</sub> term.
+</li><li class="li-itemize"><span class="c010">The tree-structured sum of </span>ℓ<sub>2</sub><span class="c010">-norms</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">g</span> ∈ <span class="c008">G</span></sub> η<sub><span class="c007">g</span></sub> ||<span class="c009">w</span><sub><span class="c007">g</span></sub>||<sub>2</sub>, where <span class="c008">G</span> is a tree-structured set of groups [<a href="doc_spams010.html#jenatton3">15</a>], and the η<sub><span class="c007">g</span></sub> are positive weights.
+</li><li class="li-itemize"><span class="c010">The tree-structured sum of </span>ℓ<sub>∞</sub><span class="c010">-norms</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">g</span> ∈ <span class="c008">G</span></sub> η<sub><span class="c007">g</span></sub> ||<span class="c009">w</span><sub><span class="c007">g</span></sub>||<sub>∞</sub>. See [<a href="doc_spams010.html#jenatton3">15</a>]
+</li><li class="li-itemize"><span class="c010">General sum of </span>ℓ<sub>∞</sub><span class="c010">-norms</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">g</span> ∈ <span class="c008">G</span></sub> η<sub><span class="c007">g</span></sub> ||<span class="c009">w</span><sub><span class="c007">g</span></sub>||<sub>∞</sub>, where no assumption are made on the groups <span class="c008">G</span>.
+</li><li class="li-itemize"><span class="c010">The path-coding penalties</span> of [<a href="doc_spams010.html#mairal14">24</a>].
+</li><li class="li-itemize"><span class="c010">the </span>ℓ<sub>1</sub><span class="c010">-constraint</span>.
+</li><li class="li-itemize"><span class="c010">a few undocumented ones</span>.
+</li></ul><p>
+Our software also handles regularization functions ψ on matrices <span class="c009">W</span> in ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup> (note that <span class="c009">W</span> can be transposed in these formulations). In particular,
+</p><ul class="itemize"><li class="li-itemize">
+<span class="c010">The </span>ℓ<sub>1</sub>/ℓ<sub>2</sub><span class="c010">-norm</span>: ψ(<span class="c009">W</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">i</span>=1</sub><sup><span class="c007">p</span></sup> ||<span class="c009">W</span><sub><span class="c007">i</span></sub>||<sub>2</sub>, where <span class="c009">W</span><sub><span class="c007">i</span></sub> denotes the <span class="c007">i</span>-th row of <span class="c009">W</span>.
+</li><li class="li-itemize"><span class="c010">The </span>ℓ<sub>1</sub>/ℓ<sub>∞</sub><span class="c010">-norm</span>: ψ(<span class="c009">W</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">i</span>=1</sub><sup><span class="c007">p</span></sup> ||<span class="c009">W</span><sub><span class="c007">i</span></sub>||<sub>∞</sub>,
+</li><li class="li-itemize"><span class="c010">The </span>ℓ<sub>1</sub>/ℓ<sub>2</sub><span class="c010">+</span>ℓ<sub>1</sub><span class="c010">-norm</span>: ψ(<span class="c009">W</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">i</span>=1</sub><sup><span class="c007">p</span></sup> ||<span class="c009">W</span><sub><span class="c007">i</span></sub>||<sub>2</sub> + λ<sub>2</sub> ∑<sub><span class="c007">i</span>,<span class="c007">j</span></sub>|<span class="c009">W</span><sub><span class="c007">ij</span></sub>|.
+</li><li class="li-itemize"><span class="c010">The </span>ℓ<sub>1</sub>/ℓ<sub>∞</sub><span class="c010">+</span>ℓ<sub>1</sub><span class="c010">-norm</span>: ψ(<span class="c009">W</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">i</span>=1</sub><sup><span class="c007">p</span></sup> ||<span class="c009">W</span><sub><span class="c007">i</span></sub>||<sub>∞</sub>+λ<sub>2</sub> ∑<sub><span class="c007">i</span>,<span class="c007">j</span></sub>|<span class="c009">W</span><sub><span class="c007">ij</span></sub>|,
+</li><li class="li-itemize"><span class="c010">The </span>ℓ<sub>1</sub>/ℓ<sub>∞</sub><span class="c010">-norm on rows and columns</span>: ψ(<span class="c009">W</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">i</span>=1</sub><sup><span class="c007">p</span></sup> ||<span class="c009">W</span><sub><span class="c007">i</span></sub>||<sub>∞</sub>+λ<sub>2</sub> ∑<sub><span class="c007">j</span>=1</sub><sup><span class="c007">r</span></sup>||<span class="c009">W</span><sup><span class="c007">j</span></sup>||<sub>∞</sub>, where <span class="c009">W</span><sup><span class="c007">j</span></sup> denotes the <span class="c007">j</span>-th column of <span class="c009">W</span>.
+</li><li class="li-itemize"><span class="c010">The multi-task tree-structured sum of </span>ℓ<sub>∞</sub><span class="c010">-norms</span>:
+<table class="display dcenter"><tr class="c016"><td class="dcell">
+ψ(<span class="c009">W</span>)</td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c005">▵</span></td></tr>
+<tr><td class="dcell c012">=</td></tr>
+<tr><td class="dcell c012">&nbsp;</td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">r</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">G</span></td></tr>
+</table></td><td class="dcell"> η<sub><span class="c007">g</span></sub>||<span class="c009">w</span><sub><span class="c007">g</span></sub><sup><span class="c007">i</span></sup>||<sub>∞</sub>+ γ </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">G</span></td></tr>
+</table></td><td class="dcell"> η<sub><span class="c007">g</span></sub> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">max</td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span> ∈ <span class="c007">g</span></td></tr>
+</table></td><td class="dcell">||<span class="c009">W</span><sub><span class="c007">j</span></sub>||<sub>∞</sub>,
+<a id="software:eq:struct"></a>
+    (25)</td></tr>
+</table>
+where the first double sums is in fact a sum of independent structured norms on the columns <span class="c009">w</span><sup><span class="c007">i</span></sup> of <span class="c009">W</span>, and the right term is a tree-structured regularization norm applied to the ℓ<sub>∞</sub>-norm of the rows of <span class="c009">W</span>, thereby inducing the tree-structured regularization at the row level. <span class="c008">G</span> is here a tree-structured set of groups.
+</li><li class="li-itemize"><span class="c010">The multi-task general sum of </span>ℓ<sub>∞</sub><span class="c010">-norms</span> is the same as Eq. (<a href="#software%3Aeq%3Astruct">25</a>) except that the groups <span class="c008">G</span> are general overlapping groups.
+</li><li class="li-itemize"><span class="c010">The trace norm</span>: ψ(<span class="c009">W</span>) =<sup><span class="c005">▵</span></sup> ||<span class="c009">W</span>||<sub>*</sub>.
+</li></ul><p>
+Non-convex regularizations are also implemented with the ISTA algorithm (no duality gaps are of course provided in these cases):
+</p><ul class="itemize"><li class="li-itemize">
+<span class="c010">The </span>ℓ<sub>0</sub><span class="c010">-pseudo-norm</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ||<span class="c009">w</span>||<sub>0</sub>.
+</li><li class="li-itemize"><span class="c010">The rank</span>: ψ(<span class="c009">W</span>) =<sup><span class="c005">▵</span></sup> randk(<span class="c009">W</span>).
+</li><li class="li-itemize"><span class="c010">The tree-structured </span>ℓ<sub>0</sub><span class="c010">-pseudo-norm</span>: ψ(<span class="c009">w</span>) =<sup><span class="c005">▵</span></sup> ∑<sub><span class="c007">g</span> ∈ <span class="c008">G</span></sub> δ<sub><span class="c009">w</span><sub><span class="c007">g</span></sub> ≠ 0</sub>.
+</li></ul><p>All of these regularization terms for vectors or matrices can be coupled with
+nonnegativity constraints. It is also possible to add an intercept, which one
+wishes not to regularize, and we will include this possibility in the next
+sections. There are also a few hidden undocumented options which are available in the source code.</p><p>We now present 3 functions for computing proximal operators associated to the previous regularization functions.
+</p>
+<h3 class="subsection" id="sec25">5.2  Function spams.proximalFlat</h3>
+<p>
+This function computes the proximal operators associated to many regularization functions, for input signals <span class="c009">U</span>=[<span class="c009">u</span><sup>1</sup>,…,<span class="c009">u</span><sup><span class="c007">n</span></sup>] in ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup>, it finds a matrix <span class="c009">V</span>=[<span class="c009">v</span><sup>1</sup>,…,<span class="c009">v</span><sup><span class="c007">n</span></sup>] in ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup> such that:</p><p>•  If one chooses a regularization function on vectors, for every column <span class="c009">u</span> of <span class="c009">U</span>, it computes one column <span class="c009">v</span> of <span class="c009">V</span> solving
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ ||<span class="c009">v</span>||<sub>0</sub>,
+    (26)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ ||<span class="c009">v</span>||<sub>1</sub>,
+    (27)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + </td><td class="dcell"><table class="display"><tr><td class="dcell c012">λ</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell"> ||<span class="c009">v</span>||<sub>2</sub><sup>2</sup>,
+    (28)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ ||<span class="c009">v</span>||<sub>1</sub> + λ<sub>2</sub>||<span class="c009">v</span>||<sub>2</sub><sup>2</sup>,
+    (29)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ</td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">p</span>−1</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell">|<span class="c009">v</span><sub><span class="c007">j</span>+1</sub><sup><span class="c007">i</span></sup>−<span class="c009">v</span><sub><span class="c007">j</span></sub><sup><span class="c007">i</span></sup>|+λ<sub>2</sub> ||<span class="c009">v</span>||<sub>1</sub> + λ<sub>3</sub>||<span class="c009">v</span>||<sub>2</sub><sup>2</sup>,
+    (30)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">T</span></td></tr>
+</table></td><td class="dcell"> δ<sup><span class="c007">g</span></sup>(<span class="c009">v</span>),
+    (31)</td></tr>
+</table><p>
+where <span class="c008">T</span> is a tree-structured set of groups (see [<a href="doc_spams010.html#jenatton4">16</a>]), and δ<sup><span class="c007">g</span></sup>(<span class="c009">v</span>) = 0 if <span class="c009">v</span><sub><span class="c007">g</span></sub>=0 and 1 otherwise.
+It can also solve
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">T</span></td></tr>
+</table></td><td class="dcell"> η<sup><span class="c007">g</span></sup> ||<span class="c009">v</span><sub><span class="c007">g</span></sub>||<sub>2</sub>,
+    (32)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">T</span></td></tr>
+</table></td><td class="dcell"> η<sup><span class="c007">g</span></sup> ||<span class="c009">v</span><sub><span class="c007">g</span></sub>||<sub>∞</sub>,
+    (33)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">G</span></td></tr>
+</table></td><td class="dcell"> η<sup><span class="c007">g</span></sup> ||<span class="c009">v</span><sub><span class="c007">g</span></sub>||<sub>∞</sub>,
+    (34)</td></tr>
+</table><p>
+where <span class="c008">G</span> is any kind of set of groups.</p><p>This function can also solve the following proximal operators on matrices
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">V</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">U</span>−<span class="c009">V</span>||<sub><span class="c007">F</span></sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">p</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> ||<span class="c009">V</span><sub><span class="c007">i</span></sub>||<sub>2</sub>,
+    (35)</td></tr>
+</table><p>
+where <span class="c009">V</span><sub><span class="c007">i</span></sub> is the <span class="c007">i</span>-th row of <span class="c009">V</span>, or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">V</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">U</span>−<span class="c009">V</span>||<sub><span class="c007">F</span></sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">p</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> ||<span class="c009">V</span><sub><span class="c007">i</span></sub>||<sub>∞</sub>,
+    (36)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">V</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">U</span>−<span class="c009">V</span>||<sub><span class="c007">F</span></sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">p</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> ||<span class="c009">V</span><sub><span class="c007">i</span></sub>||<sub>2</sub> +λ<sub>2</sub> </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">p</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell"> |<span class="c009">V</span><sub><span class="c007">ij</span></sub>|,
+    (37)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">V</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">U</span>−<span class="c009">V</span>||<sub><span class="c007">F</span></sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">p</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> ||<span class="c009">V</span><sub><span class="c007">i</span></sub>||<sub>∞</sub>+λ<sub>2</sub> </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">p</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell"> |<span class="c009">V</span><sub><span class="c007">ij</span></sub>|,
+    (38)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">V</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">U</span>−<span class="c009">V</span>||<sub><span class="c007">F</span></sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">p</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> ||<span class="c009">V</span><sub><span class="c007">i</span></sub>||<sub>∞</sub>+λ<sub>2</sub> </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell"> ||<span class="c009">V</span><sup><span class="c007">j</span></sup>||<sub>∞</sub>.
+    (39)</td></tr>
+</table><p>
+where <span class="c009">V</span><sup><span class="c007">j</span></sup> is the <span class="c007">j</span>-th column of <span class="c009">V</span>.</p><p>See details below:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: proximalFlat<br>
+#<br>
+# Usage: spams.proximalFlat(U,return_val_loss = False,numThreads =-1,lambda1=1.0,lambda2=0.,<br>
+#                    lambda3=0.,intercept=False,resetflow=False,regul="",verbose=False,<br>
+#                    pos=False,clever=True,size_group=1,groups = None,transpose=False)<br>
+#<br>
+# Description:<br>
+#     proximalFlat computes proximal operators. Depending<br>
+#         on the value of regul, it computes <br>
+#         <br>
+#         Given an input matrix U=[u^1,\ldots,u^n], it computes a matrix <br>
+#         V=[v^1,\ldots,v^n] such that<br>
+#         if one chooses a regularization functions on vectors, it computes<br>
+#         for each column u of U, a column v of V solving<br>
+#         if regul='l0'<br>
+#             argmin 0.5||u-v||_2^2 + lambda1||v||_0<br>
+#         if regul='l1'<br>
+#             argmin 0.5||u-v||_2^2 + lambda1||v||_1<br>
+#         if regul='l2'<br>
+#             argmin 0.5||u-v||_2^2 + 0.5lambda1||v||_2^2<br>
+#         if regul='elastic-net'<br>
+#             argmin 0.5||u-v||_2^2 + lambda1||v||_1 + lambda1_2||v||_2^2<br>
+#         if regul='fused-lasso'<br>
+#             argmin 0.5||u-v||_2^2 + lambda1 FL(v) + ...<br>
+#                               ...  lambda1_2||v||_1 + lambda1_3||v||_2^2<br>
+#         if regul='linf'<br>
+#             argmin 0.5||u-v||_2^2 + lambda1||v||_inf<br>
+#         if regul='l1-constraint'<br>
+#             argmin 0.5||u-v||_2^2 s.t. ||v||_1 &lt;= lambda1<br>
+#         if regul='l2-not-squared'<br>
+#             argmin 0.5||u-v||_2^2 + lambda1||v||_2<br>
+#         if regul='group-lasso-l2'  <br>
+#             argmin 0.5||u-v||_2^2 + lambda1 sum_g ||v_g||_2 <br>
+#             where the groups are either defined by groups or by size_group,<br>
+#         if regul='group-lasso-linf'<br>
+#             argmin 0.5||u-v||_2^2 + lambda1 sum_g ||v_g||_inf<br>
+#         if regul='sparse-group-lasso-l2'  <br>
+#             argmin 0.5||u-v||_2^2 + lambda1 sum_g ||v_g||_2 + lambda1_2 ||v||_1<br>
+#             where the groups are either defined by groups or by size_group,<br>
+#         if regul='sparse-group-lasso-linf'<br>
+#             argmin 0.5||u-v||_2^2 + lambda1 sum_g ||v_g||_inf + lambda1_2 ||v||_1<br>
+#         if regul='trace-norm-vec' <br>
+#             argmin 0.5||u-v||_2^2 + lambda1 ||mat(v)||_* <br>
+#            where mat(v) has size_group rows<br>
+#            <br>
+#         if one chooses a regularization function on matrices<br>
+#         if regul='l1l2',  V= <br>
+#             argmin 0.5||U-V||_F^2 + lambda1||V||_{1/2}<br>
+#         if regul='l1linf',  V= <br>
+#             argmin 0.5||U-V||_F^2 + lambda1||V||_{1/inf}<br>
+#         if regul='l1l2+l1',  V= <br>
+#             argmin 0.5||U-V||_F^2 + lambda1||V||_{1/2} + lambda1_2||V||_{1/1}<br>
+#         if regul='l1linf+l1',  V= <br>
+#             argmin 0.5||U-V||_F^2 + lambda1||V||_{1/inf} + lambda1_2||V||_{1/1}<br>
+#         if regul='l1linf+row-column',  V= <br>
+#             argmin 0.5||U-V||_F^2 + lambda1||V||_{1/inf} + lambda1_2||V'||_{1/inf}<br>
+#         if regul='trace-norm',  V= <br>
+#             argmin 0.5||U-V||_F^2 + lambda1||V||_*<br>
+#         if regul='rank',  V= <br>
+#             argmin 0.5||U-V||_F^2 + lambda1 rank(V)<br>
+#         if regul='none',  V= <br>
+#             argmin 0.5||U-V||_F^2 <br>
+#             <br>
+#         for all these regularizations, it is possible to enforce non-negativity constraints<br>
+#         with the option pos, and to prevent the last row of U to be regularized, with<br>
+#         the option intercept<br>
+#<br>
+# Inputs:<br>
+#       U:  double m x n matrix   (input signals)<br>
+#               m is the signal size<br>
+#       return_val_loss:     <br>
+#               if true the function will return a tuple of matrices.<br>
+#       lambda1:  (regularization parameter)<br>
+#       regul: (choice of regularization, see above)<br>
+#       lambda2:  (optional, regularization parameter)<br>
+#       lambda3:  (optional, regularization parameter)<br>
+#       verbose: (optional, verbosity level, false by default)<br>
+#       intercept: (optional, last row of U is not regularized,<br>
+#         false by default)<br>
+#       transpose: (optional, transpose the matrix in the regularization function)<br>
+#       size_group: (optional, for regularization functions assuming a group<br>
+#         structure). It is a scalar. When groups is not specified, it assumes<br>
+#         that the groups are the sets of consecutive elements of size size_group<br>
+#       groups: (int32, optional, for regularization functions assuming a group<br>
+#         structure. It is an int32 vector of size m containing the group indices of the<br>
+#         variables (first group is 1).<br>
+#       pos: (optional, adds positivity constraints on the<br>
+#         coefficients, false by default)<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#         multi-core / multi-cpus. By default, it takes the value -1,<br>
+#         which automatically selects all the available CPUs/cores).<br>
+#       resetflow:    undocumented; modify at your own risks!<br>
+#       clever:    undocumented; modify at your own risks!<br>
+#<br>
+# Output:<br>
+#       V: double m x n matrix (output coefficients)<br>
+#       val_regularizer: double 1 x n vector (value of the regularization<br>
+#       term at the optimum).<br>
+#       val_loss:        vector of size U.shape[1]<br>
+#         alpha = spams.proximalFlat(U,return_val_loss = False,...)<br>
+#         (alpha,val_loss) = spams.proximalFlat(U,return_val_loss = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2010 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#<br>
+# Note:<br>
+#     Valid values for the regularization parameter (regul) are:<br>
+#       "l0", "l1", "l2", "linf", "l2-not-squared", "elastic-net", "fused-lasso",<br>
+#       "group-lasso-l2", "group-lasso-linf", "sparse-group-lasso-l2",<br>
+#       "sparse-group-lasso-linf", "l1l2", "l1linf", "l1l2+l1", "l1linf+l1",<br>
+#       "tree-l0", "tree-l2", "tree-linf", "graph", "graph-ridge", "graph-l2",<br>
+#       "multi-task-tree", "multi-task-graph", "l1linf-row-column", "trace-norm",<br>
+#       "trace-norm-vec", "rank", "rank-vec", "none"<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+param = {<span class="c003">'numThreads'</span> : -1,<span class="c003">'verbose'</span> : True,<br>
+         <span class="c003">'lambda1'</span> : 0.1 }<br>
+m = 100<br>
+n = 1000<br>
+U = np.asfortranarray(np.random.normal(size = (m,n)),dtype=myfloat)<br>
+<br>
+<span class="c001"># test L0</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox l0"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l0'</span><br>
+param[<span class="c003">'pos'</span>] = False       <span class="c001"># false by default</span><br>
+param[<span class="c003">'intercept'</span>] = False <span class="c001"># false by default</span><br>
+alpha = spams.proximalFlat(U,False,**param)<br>
+<br>
+<span class="c001"># test L1</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox l1, intercept, positivity constraint"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1'</span><br>
+param[<span class="c003">'pos'</span>] = True       <span class="c001"># can be used with all the other regularizations</span><br>
+param[<span class="c003">'intercept'</span>] = True <span class="c001"># can be used with all the other regularizations</span><br>
+alpha = spams.proximalFlat(U,False,**param)<br>
+<br>
+<span class="c001"># test L2</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox squared-l2"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l2'</span><br>
+param[<span class="c003">'pos'</span>] = False<br>
+param[<span class="c003">'intercept'</span>] = False<br>
+alpha = spams.proximalFlat(U,False,**param)<br>
+<br>
+<span class="c001"># test elastic-net</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox elastic-net"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'elastic-net'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+alpha = spams.proximalFlat(U,**param)<br>
+<br>
+<span class="c001"># test fused-lasso</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox fused lasso"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'fused-lasso'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+param[<span class="c003">'lambda3'</span>] = 0.1<br>
+alpha = spams.proximalFlat(U,**param)<br>
+<br>
+<span class="c001"># test l1l2</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox mixed norm l1/l2"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1l2'</span><br>
+alpha = spams.proximalFlat(U,**param)<br>
+<br>
+<span class="c001"># test l1linf</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox mixed norm l1/linf"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1linf'</span><br>
+alpha = spams.proximalFlat(U,**param)<br>
+<br>
+<span class="c001"># test l1l2+l1</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox mixed norm l1/l2 + l1"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1l2+l1'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+alpha = spams.proximalFlat(U,**param)<br>
+<br>
+<span class="c001"># test l1linf+l1</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox mixed norm l1/linf + l1"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1linf+l1'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+alpha = spams.proximalFlat(U,**param)<br>
+<br>
+<span class="c001"># test l1linf-row-column</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox mixed norm l1/linf on rows and columns"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1linf-row-column'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+alpha = spams.proximalFlat(U,**param)<br>
+<br>
+<span class="c001"># test none</span><br>
+<span class="c002">print</span>(<span class="c003">"\nprox no regularization"</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'none'</span><br>
+alpha = spams.proximalFlat(U,**param)</td></tr>
+</table>
+<h3 class="subsection" id="sec26">5.3  Function spams.proximalTree</h3>
+<p>
+This function computes the proximal operators associated to tree-structured regularization functions, for input signals <span class="c009">U</span>=[<span class="c009">u</span><sup>1</sup>,…,<span class="c009">u</span><sup><span class="c007">n</span></sup>] in ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup>, and a tree-structured set of groups [<a href="doc_spams010.html#jenatton3">15</a>], it computes a matrix <span class="c009">V</span>=[<span class="c009">v</span><sup>1</sup>,…,<span class="c009">v</span><sup><span class="c007">n</span></sup>] in ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup>. When one uses a regularization function on vectors, it computes a column <span class="c009">v</span> of <span class="c009">V</span> for every column <span class="c009">u</span> of <span class="c009">U</span>:
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">T</span></td></tr>
+</table></td><td class="dcell"> η<sup><span class="c007">g</span></sup> ||<span class="c009">v</span><sub><span class="c007">g</span></sub>||<sub>2</sub>,
+    (40)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">T</span></td></tr>
+</table></td><td class="dcell"> η<sup><span class="c007">g</span></sup> ||<span class="c009">v</span><sub><span class="c007">g</span></sub>||<sub>∞</sub>,
+    (41)</td></tr>
+</table><p>
+or
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">T</span></td></tr>
+</table></td><td class="dcell"> δ<sup><span class="c007">g</span></sup>(<span class="c009">v</span>),
+    (42)</td></tr>
+</table><p>
+where δ<sup><span class="c007">g</span></sup>(<span class="c009">v</span>)=0 if <span class="c009">v</span><sub><span class="c007">g</span></sub>=0 and 1 otherwise (see appendix of [<a href="doc_spams010.html#jenatton4">16</a>]).</p><p>When the multi-task tree-structured regularization function is used, it solves
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">V</span> ∈ ℝ<sup><span class="c007">p</span>× <span class="c007">n</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">U</span>−<span class="c009">V</span>||<sub><span class="c007">F</span></sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">T</span></td></tr>
+</table></td><td class="dcell"> η<sup><span class="c007">g</span></sup> ||<span class="c009">v</span><sub><span class="c007">g</span></sub><sup><span class="c007">i</span></sup>||<sub>∞</sub>+ λ<sub>2</sub></td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">T</span></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">max</td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span> ∈ <span class="c007">g</span></td></tr>
+</table></td><td class="dcell"> ||<span class="c009">v</span><sub><span class="c007">g</span></sub><sup><span class="c007">j</span></sup>||<sub>∞</sub>,
+    (43)</td></tr>
+</table><p>
+which is a formulation presented in [<a href="doc_spams010.html#mairal10">22</a>].</p><p>This function can also be used for computing the proximal operators addressed by spams.proximalFlat (it will just not take into account the tree structure). The way the tree is incoded is presented below, (and examples are given in the file test_ProximalTree.m, with more usage details:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: proximalTree<br>
+#<br>
+# Usage: spams.proximalTree(U,tree,return_val_loss = False,numThreads =-1,lambda1=1.0,lambda2=0.,<br>
+#                    lambda3=0.,intercept=False,resetflow=False,regul="",verbose=False,<br>
+#                    pos=False,clever=True,size_group=1,transpose=False)<br>
+#<br>
+# Description:<br>
+#     proximalTree computes a proximal operator. Depending<br>
+#         on the value of regul, it computes <br>
+#         <br>
+#         Given an input matrix U=[u^1,\ldots,u^n], and a tree-structured set of groups T,<br>
+#         it returns a matrix V=[v^1,\ldots,v^n]:<br>
+#         <br>
+#         when the regularization function is for vectors,<br>
+#         for every column u of U, it compute a column v of V solving<br>
+#         if regul='tree-l0'<br>
+#             argmin 0.5||u-v||_2^2 + lambda1 \sum_{g \in T} \delta^g(v)<br>
+#         if regul='tree-l2'<br>
+#           for all i, v^i = <br>
+#             argmin 0.5||u-v||_2^2 + lambda1\sum_{g \in T} \eta_g||v_g||_2<br>
+#         if regul='tree-linf'<br>
+#           for all i, v^i = <br>
+#             argmin 0.5||u-v||_2^2 + lambda1\sum_{g \in T} \eta_g||v_g||_inf<br>
+#             <br>
+#         when the regularization function is for matrices:<br>
+#         if regul='multi-task-tree'<br>
+#            V=argmin 0.5||U-V||_F^2 + lambda1 \sum_{i=1}^n\sum_{g \in T} \eta_g||v^i_g||_inf + ...<br>
+#                                                lambda1_2 \sum_{g \in T} \eta_g max_{j in g}||V_j||_{inf}<br>
+#                                                <br>
+#         it can also be used with any non-tree-structured regularization addressed by proximalFlat<br>
+#         <br>
+#         for all these regularizations, it is possible to enforce non-negativity constraints<br>
+#         with the option pos, and to prevent the last row of U to be regularized, with<br>
+#         the option intercept<br>
+#<br>
+# Inputs:<br>
+#       U:  double m x n matrix   (input signals)<br>
+#               m is the signal size<br>
+#       tree: named list <br>
+#             with four fields, eta_g, groups, own_variables and N_own_variables.<br>
+#             <br>
+#             The tree structure requires a particular organization of groups and variables<br>
+#                * Let us denote by N = |T|, the number of groups.<br>
+#                  the groups should be ordered T={g1,g2,\ldots,gN} such that if gi is included<br>
+#                  in gj, then j &lt;= i. g1 should be the group at the root of the tree <br>
+#                  and contains every variable.<br>
+#                * Every group is a set of  contiguous indices for instance <br>
+#                  gi={3,4,5} or gi={4,5,6,7} or gi={4}, but not {3,5};<br>
+#                * We define root(gi) as the indices of the variables that are in gi,<br>
+#                  but not in its descendants. For instance for<br>
+#                  T={ g1={1,2,3,4},g2={2,3},g3={4} }, then, root(g1)={1}, <br>
+#                  root(g2)={2,3}, root(g3)={4},<br>
+#                  We assume that for all i, root(gi) is a set of contigous variables<br>
+#                * We assume that the smallest of root(gi) is also the smallest index of gi.<br>
+#                <br>
+#                For instance, <br>
+#                  T={ g1={1,2,3,4},g2={2,3},g3={4} }, is a valid set of groups.<br>
+#                  but we can not have<br>
+#                  T={ g1={1,2,3,4},g2={1,2},g3={3} }, since root(g1)={4} and 4 is not the<br>
+#                  smallest element in g1.<br>
+#                  <br>
+#             We do not lose generality with these assumptions since they can be fullfilled for any<br>
+#             tree-structured set of groups after a permutation of variables and a correct ordering of the<br>
+#             groups.<br>
+#             see more examples in test_ProximalTree.m of valid tree-structured sets of groups.<br>
+#             <br>
+#             The first fields sets the weights for every group<br>
+#                tree['eta_g']            double N vector <br>
+#                <br>
+#             The next field sets inclusion relations between groups <br>
+#             (but not between groups and variables):<br>
+#                tree['groups']           sparse (double or boolean) N x N matrix  <br>
+#                the (i,j) entry is non-zero if and only if i is different than j and <br>
+#                gi is included in gj.<br>
+#                the first column corresponds to the group at the root of the tree.<br>
+#                <br>
+#             The next field define the smallest index of each group gi, <br>
+#             which is also the smallest index of root(gi)<br>
+#             tree['own_variables']    int32 N vector<br>
+#             <br>
+#             The next field define for each group gi, the size of root(gi)<br>
+#             tree['N_own_variables']  int32 N vector <br>
+#             <br>
+#             examples are given in test_ProximalTree.m<br>
+#             <br>
+#       return_val_loss:     <br>
+#               if true the function will return a tuple of matrices.<br>
+#       lambda1:  (regularization parameter)<br>
+#       regul: (choice of regularization, see above)<br>
+#       lambda2:  (optional, regularization parameter)<br>
+#       lambda3:  (optional, regularization parameter)<br>
+#       verbose: (optional, verbosity level, false by default)<br>
+#       intercept: (optional, last row of U is not regularized,<br>
+#         false by default)<br>
+#       pos: (optional, adds positivity constraints on the<br>
+#         coefficients, false by default)<br>
+#       transpose: (optional, transpose the matrix in the regularization function)<br>
+#       size_group: (optional, for regularization functions assuming a group<br>
+#         structure). It is a scalar. When groups is not specified, it assumes<br>
+#         that the groups are the sets of consecutive elements of size size_group<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#         multi-core / multi-cpus. By default, it takes the value -1,<br>
+#         which automatically selects all the available CPUs/cores).<br>
+#       resetflow:    undocumented; modify at your own risks!<br>
+#       clever:    undocumented; modify at your own risks!<br>
+#<br>
+# Output:<br>
+#       V: double m x n matrix (output coefficients)<br>
+#       val_regularizer: double 1 x n vector (value of the regularization<br>
+#       term at the optimum).<br>
+#       val_loss:        vector of size U.shape[1]<br>
+#         alpha = spams.proximalTree(U,tree,return_val_loss = False,...)<br>
+#         (alpha,val_loss) = spams.proximalTree(U,tree,return_val_loss = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2010 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#<br>
+# Note:<br>
+#     Valid values for the regularization parameter (regul) are:<br>
+#       "l0", "l1", "l2", "linf", "l2-not-squared", "elastic-net", "fused-lasso",<br>
+#       "group-lasso-l2", "group-lasso-linf", "sparse-group-lasso-l2",<br>
+#       "sparse-group-lasso-linf", "l1l2", "l1linf", "l1l2+l1", "l1linf+l1",<br>
+#       "tree-l0", "tree-l2", "tree-linf", "graph", "graph-ridge", "graph-l2",<br>
+#       "multi-task-tree", "multi-task-graph", "l1linf-row-column", "trace-norm",<br>
+#       "trace-norm-vec", "rank", "rank-vec", "none"<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+param = {<span class="c003">'numThreads'</span> : -1,<span class="c003">'verbose'</span> : True,<br>
+         <span class="c003">'pos'</span> : False, <span class="c003">'intercept'</span> : False, <span class="c003">'lambda1'</span> : 0.1 }<br>
+m = 10<br>
+n = 1000<br>
+U = np.asfortranarray(np.random.normal(size = (m,n)),dtype=myfloat)<br>
+<span class="c002">print</span>(<span class="c003">'First tree example'</span>)<br>
+<span class="c001"># Example 1 of tree structure<br>
+# tree structured groups:<br>
+# g1= {0 1 2 3 4 5 6 7 8 9}<br>
+# g2= {2 3 4}<br>
+# g3= {5 6 7 8 9}</span><br>
+own_variables =  np.array([0,2,5],dtype=np.int32) <span class="c001"># pointer to the first variable of each group</span><br>
+N_own_variables =  np.array([2,3,5],dtype=np.int32) <span class="c001"># number of "root" variables in each group<br>
+# (variables that are in a group, but not in its descendants).<br>
+# for instance root(g1)={0,1}, root(g2)={2 3 4}, root(g3)={5 6 7 8 9}</span><br>
+eta_g = np.array([1,1,1],dtype=myfloat) <span class="c001"># weights for each group, they should be non-zero to use fenchel duality</span><br>
+groups = np.asfortranarray([[0,0,0],<br>
+                            [1,0,0],<br>
+                            [1,0,0]],dtype = np.bool)<br>
+<span class="c001"># first group should always be the root of the tree<br>
+# non-zero entriees mean inclusion relation ship, here g2 is a children of g1,<br>
+# g3 is a children of g1</span><br>
+groups = ssp.csc_matrix(groups,dtype=np.bool)<br>
+tree = {<span class="c003">'eta_g'</span>: eta_g,<span class="c003">'groups'</span> : groups,<span class="c003">'own_variables'</span> : own_variables,<br>
+        <span class="c003">'N_own_variables'</span> : N_own_variables}<br>
+<span class="c002">print</span>(<span class="c003">'\ntest prox tree-l0'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-l2'</span><br>
+alpha = spams.proximalTree(U,tree,False,**param)<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\ntest prox tree-linf'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-linf'</span><br>
+alpha = spams.proximalTree(U,tree,False,**param)<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'Second tree example'</span>)<br>
+<span class="c001"># Example 2 of tree structure<br>
+# tree structured groups:<br>
+# g1= {0 1 2 3 4 5 6 7 8 9}    root(g1) = { }<br>
+# g2= {0 1 2 3 4 5}            root(g2) = {0 1 2}<br>
+# g3= {3 4}                    root(g3) = {3 4}<br>
+# g4= {5}                      root(g4) = {5}<br>
+# g5= {6 7 8 9}                root(g5) = { }<br>
+# g6= {6 7}                    root(g6) = {6 7}<br>
+# g7= {8 9}                    root(g7) = {8}<br>
+# g8 = {9}                     root(g8) = {9}</span><br>
+own_variables =  np.array([0, 0, 3, 5, 6, 6, 8, 9],dtype=np.int32)<br>
+N_own_variables =  np.array([0,3,2,1,0,2,1,1],dtype=np.int32)<br>
+eta_g = np.array([1,1,1,2,2,2,2.5,2.5],dtype=myfloat)<br>
+groups = np.asfortranarray([[0,0,0,0,0,0,0,0],<br>
+                [1,0,0,0,0,0,0,0],<br>
+                [0,1,0,0,0,0,0,0],<br>
+                [0,1,0,0,0,0,0,0],<br>
+                [1,0,0,0,0,0,0,0],<br>
+                [0,0,0,0,1,0,0,0],<br>
+                [0,0,0,0,1,0,0,0],<br>
+                [0,0,0,0,0,0,1,0]],dtype = np.bool)<br>
+groups = ssp.csc_matrix(groups,dtype=np.bool)<br>
+tree = {<span class="c003">'eta_g'</span>: eta_g,<span class="c003">'groups'</span> : groups, <span class="c003">'own_variables'</span> : own_variables,<br>
+        <span class="c003">'N_own_variables'</span> : N_own_variables}<br>
+<span class="c002">print</span>(<span class="c003">'\ntest prox tree-l0'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-l0'</span><br>
+alpha = spams.proximalTree(U,tree,False,**param)<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\ntest prox tree-l2'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-l2'</span><br>
+alpha = spams.proximalTree(U,tree,False,**param)<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\ntest prox tree-linf'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-linf'</span><br>
+alpha = spams.proximalTree(U,tree,False,**param)<br>
+<br>
+<span class="c001"># mexProximalTree also works with non-tree-structured regularization functions</span><br>
+<span class="c002">print</span>(<span class="c003">'\nprox l1, intercept, positivity constraint'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1'</span><br>
+param[<span class="c003">'pos'</span>] = True       <span class="c001"># can be used with all the other regularizations</span><br>
+param[<span class="c003">'intercept'</span>] = True <span class="c001"># can be used with all the other regularizations</span><br>
+alpha = spams.proximalTree(U,tree,False,**param)<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nprox multi-task tree'</span>)<br>
+param[<span class="c003">'pos'</span>] = False<br>
+param[<span class="c003">'intercept'</span>] = False<br>
+param[<span class="c003">'lambda2'</span>] = param[<span class="c003">'lambda1'</span>]<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'multi-task-tree'</span><br>
+alpha = spams.proximalTree(U,tree,False,**param)</td></tr>
+</table>
+<h3 class="subsection" id="sec27">5.4  Function spams.proximalGraph</h3>
+<p>
+This function computes the proximal operators associated to structured sparse regularization, for input signals <span class="c009">U</span>=[<span class="c009">u</span><sup>1</sup>,…,<span class="c009">u</span><sup><span class="c007">n</span></sup>] in ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup>, and a set of groups [<a href="doc_spams010.html#mairal10">22</a>], it returns a matrix <span class="c009">V</span>=[<span class="c009">v</span><sup>1</sup>,…,<span class="c009">v</span><sup><span class="c007">n</span></sup>] in ℝ<sup><span class="c007">p</span> × <span class="c007">n</span></sup>.
+When one uses a regularization function on vectors, it computes a column <span class="c009">v</span> of <span class="c009">V</span> for every column <span class="c009">u</span> of <span class="c009">U</span>:
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">v</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">u</span>−<span class="c009">v</span>||<sub>2</sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">G</span></td></tr>
+</table></td><td class="dcell"> η<sup><span class="c007">g</span></sup> ||<span class="c009">v</span><sub><span class="c007">g</span></sub>||<sub>∞</sub>,
+    (44)</td></tr>
+</table><p>
+or with a regularization function on matrices, it computes <span class="c009">V</span> solving
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">V</span> ∈ ℝ<sup><span class="c007">p</span>× <span class="c007">n</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">U</span>−<span class="c009">V</span>||<sub><span class="c007">F</span></sub><sup>2</sup> + λ </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">G</span></td></tr>
+</table></td><td class="dcell"> η<sup><span class="c007">g</span></sup> ||<span class="c009">v</span><sub><span class="c007">g</span></sub><sup><span class="c007">i</span></sup>||<sub>∞</sub>+ λ<sub>2</sub></td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">g</span> ∈ <span class="c008">G</span></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">max</td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span> ∈ <span class="c007">g</span></td></tr>
+</table></td><td class="dcell"> ||<span class="c009">v</span><sub><span class="c007">g</span></sub><sup><span class="c007">j</span></sup>||<sub>∞</sub>,
+    (45)</td></tr>
+</table><p>
+This function can also be used for computing the proximal operators addressed by spams.proximalFlat. The way the graph is incoded is presented below (and also in the example file test_ProximalGraph.m, with more usage details:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: proximalGraph<br>
+#<br>
+# Usage: spams.proximalGraph(U,graph,return_val_loss = False,numThreads =-1,lambda1=1.0,lambda2=0.,<br>
+#                     lambda3=0.,intercept=False,resetflow=False,regul="",verbose=False,<br>
+#                     pos=False,clever=True,eval= None,size_group=1,transpose=False)<br>
+#<br>
+# Description:<br>
+#     proximalGraph computes a proximal operator. Depending<br>
+#         on the value of regul, it computes <br>
+#         <br>
+#         Given an input matrix U=[u^1,\ldots,u^n], and a set of groups G,<br>
+#         it computes a matrix V=[v^1,\ldots,v^n] such that<br>
+#         <br>
+#         if regul='graph'<br>
+#         for every column u of U, it computes a column v of V solving<br>
+#             argmin 0.5||u-v||_2^2 + lambda1\sum_{g \in G} \eta_g||v_g||_inf<br>
+#             <br>
+#         if regul='graph+ridge'<br>
+#         for every column u of U, it computes a column v of V solving<br>
+#             argmin 0.5||u-v||_2^2 + lambda1\sum_{g \in G} \eta_g||v_g||_inf + lambda1_2||v||_2^2<br>
+#             <br>
+#             <br>
+#         if regul='multi-task-graph'<br>
+#            V=argmin 0.5||U-V||_F^2 + lambda1 \sum_{i=1}^n\sum_{g \in G} \eta_g||v^i_g||_inf + ...<br>
+#                                                lambda1_2 \sum_{g \in G} \eta_g max_{j in g}||V_j||_{inf}<br>
+#                                                <br>
+#         it can also be used with any regularization addressed by proximalFlat<br>
+#         <br>
+#         for all these regularizations, it is possible to enforce non-negativity constraints<br>
+#         with the option pos, and to prevent the last row of U to be regularized, with<br>
+#         the option intercept<br>
+#<br>
+# Inputs:<br>
+#       U:  double p x n matrix   (input signals)<br>
+#               m is the signal size<br>
+#       graph: struct<br>
+#             with three fields, eta_g, groups, and groups_var<br>
+#             <br>
+#             The first fields sets the weights for every group<br>
+#                graph.eta_g            double N vector <br>
+#                <br>
+#             The next field sets inclusion relations between groups <br>
+#             (but not between groups and variables):<br>
+#                graph.groups           sparse (double or boolean) N x N matrix  <br>
+#                the (i,j) entry is non-zero if and only if i is different than j and <br>
+#                gi is included in gj.<br>
+#                <br>
+#             The next field sets inclusion relations between groups and variables<br>
+#                graph.groups_var       sparse (double or boolean) p x N matrix<br>
+#                the (i,j) entry is non-zero if and only if the variable i is included <br>
+#                in gj, but not in any children of gj.<br>
+#                <br>
+#             examples are given in test_ProximalGraph.m<br>
+#             <br>
+#       return_val_loss:     <br>
+#               if true the function will return a tuple of matrices.<br>
+#       lambda1:  (regularization parameter)<br>
+#       regul: (choice of regularization, see above)<br>
+#       lambda2:  (optional, regularization parameter)<br>
+#       lambda3:  (optional, regularization parameter)<br>
+#       verbose: (optional, verbosity level, false by default)<br>
+#       intercept: (optional, last row of U is not regularized,<br>
+#         false by default)<br>
+#       pos: (optional, adds positivity constraints on the<br>
+#         coefficients, false by default)<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#         multi-core / multi-cpus. By default, it takes the value -1,<br>
+#         which automatically selects all the available CPUs/cores).<br>
+#       resetflow:    undocumented; modify at your own risks!<br>
+#       clever:    undocumented; modify at your own risks!<br>
+#       size_group:    undocumented; modify at your own risks!<br>
+#       transpose:    undocumented; modify at your own risks!<br>
+#<br>
+# Output:<br>
+#       V: double p x n matrix (output coefficients)<br>
+#       val_regularizer: double 1 x n vector (value of the regularization<br>
+#       term at the optimum).<br>
+#       val_loss:        vector of size U.shape[1]<br>
+#         alpha = spams.proximalGraph(U,graph,return_val_loss = False,...)<br>
+#         (alpha,val_loss) = spams.proximalGraph(U,graph,return_val_loss = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2010 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#<br>
+# Note:<br>
+#     Valid values for the regularization parameter (regul) are:<br>
+#       "l0", "l1", "l2", "linf", "l2-not-squared", "elastic-net", "fused-lasso",<br>
+#       "group-lasso-l2", "group-lasso-linf", "sparse-group-lasso-l2",<br>
+#       "sparse-group-lasso-linf", "l1l2", "l1linf", "l1l2+l1", "l1linf+l1",<br>
+#       "tree-l0", "tree-l2", "tree-linf", "graph", "graph-ridge", "graph-l2",<br>
+#       "multi-task-tree", "multi-task-graph", "l1linf-row-column", "trace-norm",<br>
+#       "trace-norm-vec", "rank", "rank-vec", "none"<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+np.random.seed(0)<br>
+lambda1 = 0.1 <span class="c001"># regularization parameter</span><br>
+num_threads = -1 <span class="c001"># all cores (-1 by default)</span><br>
+verbose = True   <span class="c001"># verbosity, false by default</span><br>
+pos = False       <span class="c001"># can be used with all the other regularizations</span><br>
+intercept = False <span class="c001"># can be used with all the other regularizations</span><br>
+<br>
+U = np.asfortranarray(np.random.normal(size = (10,100)),dtype=myfloat)<br>
+<span class="c002">print</span>(<span class="c003">'First graph example'</span>)<br>
+<span class="c001"># Example 1 of graph structure<br>
+# groups:<br>
+# g1= {0 1 2 3}<br>
+# g2= {3 4 5 6}<br>
+# g3= {6 7 8 9}</span><br>
+eta_g = np.array([1, 1, 1],dtype=myfloat)<br>
+groups = ssp.csc_matrix(np.zeros((3,3)),dtype = np.bool)<br>
+groups_var = ssp.csc_matrix(<br>
+    np.array([[1, 0, 0],<br>
+              [1, 0, 0],<br>
+              [1, 0, 0],<br>
+              [1, 1, 0],<br>
+              [0, 1, 0],<br>
+              [0, 1, 0],<br>
+              [0, 1, 1],<br>
+              [0, 0, 1],<br>
+              [0, 0, 1],<br>
+              [0, 0, 1]],dtype=np.bool),dtype=np.bool)<br>
+graph = {<span class="c003">'eta_g'</span>: eta_g,<span class="c003">'groups'</span> : groups,<span class="c003">'groups_var'</span> : groups_var}<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\ntest prox graph'</span>)<br>
+regul=<span class="c003">'graph'</span><br>
+alpha = spams.proximalGraph(U,graph,False,lambda1 = lambda1,numThreads  = num_threads ,verbose = verbose,pos = pos,intercept = intercept,regul = regul)<br>
+<br>
+<span class="c001"># Example 2 of graph structure<br>
+# groups:<br>
+# g1= {0 1 2 3}<br>
+# g2= {3 4 5 6}<br>
+# g3= {6 7 8 9}<br>
+# g4= {0 1 2 3 4 5}<br>
+# g5= {6 7 8}</span><br>
+eta_g = np.array([1, 1, 1, 1, 1],dtype=myfloat)<br>
+groups = ssp.csc_matrix(<br>
+    np.array([[0, 0, 0, 1, 0],<br>
+              [0, 0, 0, 0, 0],<br>
+              [0, 0, 0, 0, 0],<br>
+              [0, 0, 0, 0, 0],<br>
+              [0, 0, 1, 0, 0]],dtype=np.bool),dtype=np.bool)<br>
+<br>
+groups_var = ssp.csc_matrix(<br>
+    np.array([[1, 0, 0, 0, 0],<br>
+              [1, 0, 0, 0, 0],<br>
+              [1, 0, 0, 0, 0],<br>
+              [1, 1, 0, 0, 0],<br>
+              [0, 1, 0, 1, 0],<br>
+              [0, 1, 0, 1, 0],<br>
+              [0, 1, 0, 0, 1],<br>
+              [0, 0, 0, 0, 1],<br>
+              [0, 0, 0, 0, 1],<br>
+              [0, 0, 1, 0, 0]],dtype=np.bool),dtype=np.bool)<br>
+graph = {<span class="c003">'eta_g'</span>: eta_g,<span class="c003">'groups'</span> : groups,<span class="c003">'groups_var'</span> : groups_var}<br>
+<span class="c002">print</span>(<span class="c003">'\ntest prox graph'</span>)<br>
+alpha = spams.proximalGraph(U,graph,False,lambda1 = lambda1,numThreads  = num_threads ,verbose = verbose,pos = pos,intercept = intercept,regul = regul)<br>
+<span class="c001">#</span><br>
+<span class="c002">print</span>(<span class="c003">'\ntest prox multi-task-graph'</span>)<br>
+regul = <span class="c003">'multi-task-graph'</span><br>
+lambda2 = 0.1<br>
+alpha = spams.proximalGraph(U,graph,False,lambda1 = lambda1,lambda2 = lambda2,numThreads  = num_threads ,verbose = verbose,pos = pos,intercept = intercept,regul = regul)<br>
+<span class="c001">#</span><br>
+<span class="c002">print</span>(<span class="c003">'\ntest no regularization'</span>)<br>
+regul = <span class="c003">'none'</span><br>
+alpha = spams.proximalGraph(U,graph,False,lambda1 = lambda1,lambda2 = lambda2,numThreads  = num_threads ,verbose = verbose,pos = pos,intercept = intercept,regul = regul)</td></tr>
+</table>
+<h3 class="subsection" id="sec28">5.5  Function spams.proximalPathCoding</h3>
+<p>
+This function computes the proximal operators associated to the path coding penalties of [<a href="doc_spams010.html#mairal14">24</a>].
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# The python function is not yet implemented.<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+This function is associated to a function to evaluate the penalties:
+</p>
+<h3 class="subsection" id="sec29">5.6  Function spams.evalPathCoding</h3>
+<table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# The python function is not yet implemented.<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.</p><p>After having presented the regularization terms which our software can handle,
+we present the various formulations that we address
+</p>
+<h3 class="subsection" id="sec30">5.7  Problems Addressed</h3>
+<p>
+We present here regression or classification formulations and their multi-task variants.
+</p>
+<h4 class="subsubsection" id="sec31">5.7.1  Regression Problems with the Square Loss</h4>
+<p> Given a training set {<span class="c009">x</span><sup><span class="c007">i</span></sup>,<span class="c007">y</span><sub><span class="c007">i</span></sub>}<sub><span class="c007">i</span>=1</sub><sup><span class="c007">n</span></sup>, with <span class="c009">x</span><sup><span class="c007">i</span></sup> ∈ ℝ<sup><span class="c007">p</span></sup> and <span class="c007">y</span><sub><span class="c007">i</span></sub> ∈ ℝ for all <span class="c007">i</span> in [ 1;<span class="c007">n</span> ], we address
+</p><table class="display dcenter"><tr class="c016"><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">w</span> ∈ ℝ<sup><span class="c007">p</span></sup>, <span class="c007">b</span> ∈ ℝ</td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">(<span class="c007">y</span><sub><span class="c007">i</span></sub>−<span class="c009">w</span><sup>⊤</sup><span class="c009">x</span><sup><span class="c007">i</span></sup>−<span class="c007">b</span>)<sup>2</sup> + λψ(<span class="c009">w</span>),
+</td></tr>
+</table><p>
+where <span class="c007">b</span> is an optional variable acting as an “intercept”, which is not regularized, and ψ
+can be any of the regularization functions presented above.
+Let us consider the vector <span class="c009">y</span> in ℝ<sup><span class="c007">n</span></sup> that carries the entries <span class="c007">y</span><sub><span class="c007">i</span></sub>.
+The problem without the intercept takes the following form, which we have already
+encountered in the previous toolbox, but with different notations:
+</p><table class="display dcenter"><tr class="c016"><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">w</span> ∈ ℝ<sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">||<span class="c009">y</span>−<span class="c009">Xw</span>||<sub>2</sub><sup>2</sup> + λψ(<span class="c009">w</span>),
+</td></tr>
+</table><p>
+where the <span class="c009">X</span>=[<span class="c009">x</span><sup><span class="c007">i</span></sup>,…,<span class="c009">x</span><sup><span class="c007">n</span></sup>]<sup><span class="c007">T</span></sup> (the <span class="c009">x</span><sup><span class="c007">i</span></sup>’s are here the rows of <span class="c009">X</span>).
+</p>
+<h4 class="subsubsection" id="sec32">5.7.2  Classification Problems with the Logistic Loss</h4>
+<p>
+The next formulation that our software can solve is the regularized logistic regression formulation.
+We are again given a training set {<span class="c009">x</span><sup><span class="c007">i</span></sup>,<span class="c007">y</span><sub><span class="c007">i</span></sub>}<sub><span class="c007">i</span>=1</sub><sup><span class="c007">n</span></sup>, with <span class="c009">x</span><sup><span class="c007">i</span></sup> ∈
+ℝ<sup><span class="c007">p</span></sup>, but the variables <span class="c007">y</span><sub><span class="c007">i</span></sub> are now in {−1,+1} for all <span class="c007">i</span> in
+[ 1;<span class="c007">n</span> ]. The optimization problem we address is
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">   </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">w</span> ∈ ℝ<sup><span class="c007">p</span></sup>, <span class="c007">b</span> ∈ ℝ</td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> log(1+<span class="c007">e</span><sup>−<span class="c007">y</span><sub><span class="c007">i</span></sub>(<span class="c009">w</span><sup>⊤</sup><span class="c009">x</span><sup><span class="c007">i</span></sup>+<span class="c007">b</span>)</sup> + λψ(<span class="c009">w</span>),
+</td></tr>
+</table><p>
+with again ψ taken to be one of the regularization function presented above, and <span class="c007">b</span> is an optional intercept.
+</p>
+<h4 class="subsubsection" id="sec33">5.7.3  Multi-class Classification Problems with the Softmax Loss</h4>
+<p>
+We have also implemented a multi-class logistic classifier (or softmax).
+For a classification problem with <span class="c007">r</span> classes, we are given a training set {<span class="c009">x</span><sup><span class="c007">i</span></sup>,<span class="c007">y</span><sub><span class="c007">i</span></sub>}<sub><span class="c007">i</span>=1</sub><sup><span class="c007">n</span></sup>, where the variables <span class="c009">x</span><sup><span class="c007">i</span></sup> are still vectors in ℝ<sup><span class="c007">p</span></sup>, but the <span class="c007">y</span><sub><span class="c007">i</span></sub>’s have integer values in {1,2,…,<span class="c007">r</span>}. The formulation we address is the following multi-class learning problem
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">W</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup>, <span class="c009">b</span> ∈ ℝ<sup><span class="c007">r</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> log</td><td class="dcell">⎛<br>
+⎜<br>
+⎝</td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">r</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell"> <span class="c007">e</span><sup> (<span class="c009">w</span><sup><span class="c007">j</span></sup>−<span class="c009">w</span><sup><span class="c009">y</span><sub><span class="c007">i</span></sub></sup>)<sup>⊤</sup><span class="c009">x</span><sup><span class="c007">i</span></sup> + <span class="c009">b</span><sub><span class="c007">j</span></sub>−<span class="c009">b</span><sub><span class="c009">y</span><sub><span class="c007">i</span></sub></sub></sup></td><td class="dcell">⎞<br>
+⎟<br>
+⎠</td><td class="dcell">+ λ</td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">r</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell">ψ(<span class="c009">w</span><sup><span class="c007">j</span></sup>),<a id="software:eq:class"></a>
+    (46)</td></tr>
+</table><p>
+where <span class="c009">W</span> = [<span class="c009">w</span><sup>1</sup>,…,<span class="c009">w</span><sup><span class="c007">r</span></sup>] and the optional vector <span class="c009">b</span> in ℝ<sup><span class="c007">r</span></sup> carries intercepts for each class.
+</p>
+<h4 class="subsubsection" id="sec34">5.7.4  Multi-task Regression Problems with the Square Loss</h4>
+<p>
+We are now considering a problem with <span class="c007">r</span> tasks, and a training set
+{<span class="c009">x</span><sup><span class="c007">i</span></sup>,<span class="c009">y</span><sup><span class="c007">i</span></sup>}<sub><span class="c007">i</span>=1</sub><sup><span class="c007">n</span></sup>, where the variables <span class="c009">x</span><sup><span class="c007">i</span></sup> are still vectors in ℝ<sup><span class="c007">p</span></sup>, and <span class="c009">y</span><sup><span class="c007">i</span></sup>
+is a vector in ℝ<sup><span class="c007">r</span></sup>. We are looking for <span class="c007">r</span> regression vectors <span class="c009">w</span><sup><span class="c007">j</span></sup>, for <span class="c007">j</span>∈ [ 1;<span class="c007">r</span> ], or equivalently for a matrix <span class="c009">W</span>=[<span class="c009">w</span><sup>1</sup>,…,<span class="c009">w</span><sup><span class="c007">r</span></sup>] in ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup>. The formulation we address is the following
+multi-task regression problem
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">         </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">W</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup>, <span class="c009">b</span> ∈ ℝ<sup><span class="c007">r</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">r</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell">(<span class="c009">y</span><sub><span class="c007">j</span></sub><sup><span class="c007">i</span></sup>−<span class="c009">w</span><sup>⊤</sup><span class="c009">x</span><sup><span class="c007">i</span></sup>−<span class="c009">b</span><sub><span class="c007">j</span></sub>)<sup>2</sup> + λψ(<span class="c009">W</span>),
+</td></tr>
+</table><p>
+where ψ is any of the regularization function on matrices we have presented in the previous section.
+Note that by introducing the appropriate variables <span class="c009">Y</span>, the problem without intercept could be equivalently rewritten
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">   </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">W</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell"> ||<span class="c009">Y</span>−<span class="c009">XW</span>||<sub>F</sub><sup>2</sup> + λψ(<span class="c009">W</span>).
+</td></tr>
+</table>
+<h4 class="subsubsection" id="sec35">5.7.5  Multi-task Classification Problems with the Logistic Loss</h4>
+<p>
+The multi-task version of the logistic regression follows the same principle.
+We consider <span class="c007">r</span> tasks, and a training set
+{<span class="c009">x</span><sup><span class="c007">i</span></sup>,<span class="c009">y</span><sup><span class="c007">i</span></sup>}<sub><span class="c007">i</span>=1</sub><sup><span class="c007">n</span></sup>, with the <span class="c009">x</span><sup><span class="c007">i</span></sup>’s in ℝ<sup><span class="c007">p</span></sup>, and the <span class="c009">y</span><sup><span class="c007">i</span></sup>’s
+are vectors in {−1,+1}<sup><span class="c007">r</span></sup>. We look for a matrix <span class="c009">W</span>=[<span class="c009">w</span><sup>1</sup>,…,<span class="c009">w</span><sup><span class="c007">r</span></sup>] in ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup>. The formulation is the following
+multi-task regression problem
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">   </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">W</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup>, <span class="c009">b</span> ∈ ℝ<sup><span class="c007">r</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">r</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> log</td><td class="dcell">⎛<br>
+⎜<br>
+⎝</td><td class="dcell">1+<span class="c007">e</span><sup>−<span class="c009">y</span><sub><span class="c007">j</span></sub><sup><span class="c007">i</span></sup>(<span class="c009">w</span><sup>⊤</sup><span class="c009">x</span><sup><span class="c007">i</span></sup>+<span class="c009">b</span><sub><span class="c007">j</span></sub>)</sup></td><td class="dcell">⎞<br>
+⎟<br>
+⎠</td><td class="dcell">+ λψ(<span class="c009">W</span>).
+</td></tr>
+</table>
+<h4 class="subsubsection" id="sec36">5.7.6  Multi-task and Multi-class Classification Problems with the Softmax Loss</h4>
+<p>
+The multi-task/multi-class version directly follows from the formulation of Eq. (<a href="#software%3Aeq%3Aclass">46</a>), but associates with each class a task, and as a consequence, regularizes the matrix <span class="c009">W</span> in a particular way:
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">   </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">W</span> ∈ ℝ<sup><span class="c007">p</span> × <span class="c007">r</span></sup>, <span class="c009">b</span> ∈ ℝ<sup><span class="c007">r</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+</table></td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> log</td><td class="dcell">⎛<br>
+⎜<br>
+⎝</td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">r</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell"> <span class="c007">e</span><sup> (<span class="c009">w</span><sup><span class="c007">j</span></sup>−<span class="c009">w</span><sup><span class="c009">y</span><sub><span class="c007">i</span></sub></sup>)<sup>⊤</sup><span class="c009">x</span><sup><span class="c007">i</span></sup> + <span class="c009">b</span><sub><span class="c007">j</span></sub>−<span class="c009">b</span><sub><span class="c009">y</span><sub><span class="c007">i</span></sub></sub></sup></td><td class="dcell">⎞<br>
+⎟<br>
+⎠</td><td class="dcell">+ λψ(<span class="c009">W</span>).
+</td></tr>
+</table><p>
+How duality gaps are computed for any of these formulations is presented in Appendix <a href="doc_spams009.html#appendix">A</a>.
+We now present the main functions for solving these problems</p>
+<h3 class="subsection" id="sec37">5.8  Function spams.fistaFlat</h3>
+<p>
+Given a matrix <span class="c009">X</span>=[<span class="c009">x</span><sup>1</sup>,…,<span class="c009">x</span><sup><span class="c007">p</span></sup>]<sup><span class="c007">T</span></sup> in ℝ<sup><span class="c007">m</span> × <span class="c007">p</span></sup>, and a matrix <span class="c009">Y</span>=[<span class="c009">y</span><sup>1</sup>,…,<span class="c009">y</span><sup><span class="c007">n</span></sup>], it solves the optimization problems presented in the previous section, with the same regularization functions as spams.proximalFlat.
+see usage details below:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: fistaFlat<br>
+#<br>
+# Usage: spams.fistaFlat(Y,X,W0,return_optim_info = False,numThreads =-1,max_it =1000,L0=1.0,<br>
+#                 fixed_step=False,gamma=1.5,lambda1=1.0,delta=1.0,lambda2=0.,lambda3=0.,<br>
+#                 a=1.0,b=0.,c=1.0,tol=0.000001,it0=100,max_iter_backtracking=1000,<br>
+#                 compute_gram=False,lin_admm=False,admm=False,intercept=False,<br>
+#                 resetflow=False,regul="",loss="",verbose=False,pos=False,clever=False,<br>
+#                 log=False,ista=False,subgrad=False,logName="",is_inner_weights=False,<br>
+#                 inner_weights=None,size_group=1,groups = None,sqrt_step=True,<br>
+#                 transpose=False,linesearch_mode=0)<br>
+#<br>
+# Description:<br>
+#     fistaFlat solves sparse regularized problems.<br>
+#         X is a design matrix of size m x p<br>
+#         X=[x^1,...,x^n]', where the x_i's are the rows of X<br>
+#         Y=[y^1,...,y^n] is a matrix of size m x n<br>
+#         It implements the algorithms FISTA, ISTA and subgradient descent.<br>
+#         <br>
+#           - if loss='square' and regul is a regularization function for vectors,<br>
+#             the entries of Y are real-valued,  W = [w^1,...,w^n] is a matrix of size p x n<br>
+#             For all column y of Y, it computes a column w of W such that<br>
+#               w = argmin 0.5||y- X w||_2^2 + lambda1 psi(w)<br>
+#               <br>
+#           - if loss='square' and regul is a regularization function for matrices<br>
+#             the entries of Y are real-valued,  W is a matrix of size p x n. <br>
+#             It computes the matrix W such that<br>
+#               W = argmin 0.5||Y- X W||_F^2 + lambda1 psi(W)<br>
+#               <br>
+#           - loss='square-missing' same as loss='square', but handles missing data<br>
+#             represented by NaN (not a number) in the matrix Y<br>
+#             <br>
+#           - if loss='logistic' and regul is a regularization function for vectors,<br>
+#             the entries of Y are either -1 or +1, W = [w^1,...,w^n] is a matrix of size p x n<br>
+#             For all column y of Y, it computes a column w of W such that<br>
+#               w = argmin (1/m)sum_{j=1}^m log(1+e^(-y_j x^j' w)) + lambda1 psi(w),<br>
+#             where x^j is the j-th row of X.<br>
+#             <br>
+#           - if loss='logistic' and regul is a regularization function for matrices<br>
+#             the entries of Y are either -1 or +1, W is a matrix of size p x n<br>
+#               W = argmin sum_{i=1}^n(1/m)sum_{j=1}^m log(1+e^(-y^i_j x^j' w^i)) + lambda1 psi(W)<br>
+#               <br>
+#           - if loss='multi-logistic' and regul is a regularization function for vectors,<br>
+#             the entries of Y are in {0,1,...,N} where N is the total number of classes<br>
+#             W = [W^1,...,W^n] is a matrix of size p x Nn, each submatrix W^i is of size p x N<br>
+#             for all submatrix WW of W, and column y of Y, it computes<br>
+#               WW = argmin (1/m)sum_{j=1}^m log(sum_{j=1}^r e^(x^j'(ww^j-ww^{y_j}))) + lambda1 sum_{j=1}^N psi(ww^j),<br>
+#             where ww^j is the j-th column of WW.<br>
+#             <br>
+#           - if loss='multi-logistic' and regul is a regularization function for matrices,<br>
+#             the entries of Y are in {0,1,...,N} where N is the total number of classes<br>
+#             W is a matrix of size p x N, it computes<br>
+#               W = argmin (1/m)sum_{j=1}^m log(sum_{j=1}^r e^(x^j'(w^j-w^{y_j}))) + lambda1 psi(W)<br>
+#             where ww^j is the j-th column of WW.<br>
+#             <br>
+#           - loss='cur' useful to perform sparse CUR matrix decompositions, <br>
+#               W = argmin 0.5||Y-X*W*X||_F^2 + lambda1 psi(W)<br>
+#               <br>
+#               <br>
+#         The function psi are those used by proximalFlat (see documentation)<br>
+#         <br>
+#         This function can also handle intercepts (last row of W is not regularized),<br>
+#         and/or non-negativity constraints on W, and sparse matrices for X<br>
+#<br>
+# Inputs:<br>
+#       Y:  double dense m x n matrix<br>
+#       X:  double dense or sparse m x p matrix   <br>
+#       W0:  double dense p x n matrix or p x Nn matrix (for multi-logistic loss)<br>
+#            initial guess<br>
+#       return_optim_info:     <br>
+#               if true the function will return a tuple of matrices.<br>
+#       loss: (choice of loss, see above)<br>
+#       regul: (choice of regularization, see function proximalFlat)<br>
+#       lambda1: (regularization parameter)<br>
+#       lambda2: (optional, regularization parameter, 0 by default)<br>
+#       lambda3: (optional, regularization parameter, 0 by default)<br>
+#       verbose: (optional, verbosity level, false by default)<br>
+#       pos: (optional, adds positivity constraints on the<br>
+#           coefficients, false by default)<br>
+#       transpose: (optional, transpose the matrix in the regularization function)<br>
+#       size_group: (optional, for regularization functions assuming a group<br>
+#            structure)<br>
+#       groups: (int32, optional, for regularization functions assuming a group<br>
+#            structure, see proximalFlat)<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#           multi-core / multi-cpus. By default, it takes the value -1,<br>
+#           which automatically selects all the available CPUs/cores).<br>
+#       max_it: (optional, maximum number of iterations, 100 by default)<br>
+#       it0: (optional, frequency for computing duality gap, every 10 iterations by default)<br>
+#       tol: (optional, tolerance for stopping criteration, which is a relative duality gap<br>
+#           if it is available, or a relative change of parameters).<br>
+#       gamma: (optional, multiplier for increasing the parameter L in fista, 1.5 by default)<br>
+#       L0: (optional, initial parameter L in fista, 0.1 by default, should be small enough)<br>
+#       fixed_step: (deactive the line search for L in fista and use L0 instead)<br>
+#       linesearch_mode: (line-search scheme when ista=true:<br>
+#       0: default, monotonic backtracking scheme<br>
+#       1: monotonic backtracking scheme, with restart at each iteration<br>
+#       2: Barzilai-Borwein step sizes (similar to SparSA by Wright et al.) <br>
+#       3: non-monotonic backtracking<br>
+#       compute_gram: (optional, pre-compute X^TX, false by default).<br>
+#       intercept: (optional, do not regularize last row of W, false by default).<br>
+#       ista: (optional, use ista instead of fista, false by default).<br>
+#       subgrad: (optional, if not ista, use subradient descent instead of fista, false by default).<br>
+#       a: <br>
+#       b: (optional, if subgrad, the gradient step is a/(t+b)<br>
+#       also similar options as proximalFlat<br>
+#       <br>
+#       the function also implements the ADMM algorithm via an option admm=true. It is not documented<br>
+#       and you need to look at the source code to use it.<br>
+#       delta:    undocumented; modify at your own risks!<br>
+#       c:    undocumented; modify at your own risks!<br>
+#       max_iter_backtracking:    undocumented; modify at your own risks!<br>
+#       lin_admm:    undocumented; modify at your own risks!<br>
+#       admm:    undocumented; modify at your own risks!<br>
+#       resetflow:    undocumented; modify at your own risks!<br>
+#       clever:    undocumented; modify at your own risks!<br>
+#       log:    undocumented; modify at your own risks!<br>
+#       logName:    undocumented; modify at your own risks!<br>
+#       is_inner_weights:    undocumented; modify at your own risks!<br>
+#       inner_weights:    undocumented; modify at your own risks!<br>
+#       sqrt_step:    undocumented; modify at your own risks!<br>
+#<br>
+# Output:<br>
+#       W:  double dense p x n matrix or p x Nn matrix (for multi-logistic loss)<br>
+#       optim: optional, double dense 4 x n matrix.<br>
+#           first row: values of the objective functions.<br>
+#           third row: values of the relative duality gap (if available)<br>
+#           fourth row: number of iterations<br>
+#       optim_info:        vector of size 4, containing information of the optimization.<br>
+#             W = spams.fistaFlat(Y,X,W0,return_optim_info = False,...)<br>
+#             (W,optim_info) = spams.fistaFlat(Y,X,W0,return_optim_info = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2010 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#<br>
+# Note:<br>
+#     Valid values for the regularization parameter (regul) are:<br>
+#       "l0", "l1", "l2", "linf", "l2-not-squared", "elastic-net", "fused-lasso",<br>
+#       "group-lasso-l2", "group-lasso-linf", "sparse-group-lasso-l2",<br>
+#       "sparse-group-lasso-linf", "l1l2", "l1linf", "l1l2+l1", "l1linf+l1",<br>
+#       "tree-l0", "tree-l2", "tree-linf", "graph", "graph-ridge", "graph-l2",<br>
+#       "multi-task-tree", "multi-task-graph", "l1linf-row-column", "trace-norm",<br>
+#       "trace-norm-vec", "rank", "rank-vec", "none"<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+param = {<span class="c003">'numThreads'</span> : -1,<span class="c003">'verbose'</span> : True,<br>
+         <span class="c003">'lambda1'</span> : 0.05, <span class="c003">'it0'</span> : 10, <span class="c003">'max_it'</span> : 200,<br>
+         <span class="c003">'L0'</span> : 0.1, <span class="c003">'tol'</span> : 1e-3, <span class="c003">'intercept'</span> : False,<br>
+         <span class="c003">'pos'</span> : False}<br>
+np.random.seed(0)<br>
+m = 100<br>
+n = 200<br>
+X = np.asfortranarray(np.random.normal(size = (m,n)))<br>
+X = np.asfortranarray(X - np.tile(np.mean(X,0),(X.shape[0],1)),dtype=myfloat)<br>
+X = spams.normalize(X)<br>
+Y = np.asfortranarray(np.random.normal(size = (m,1)))<br>
+Y = np.asfortranarray(Y - np.tile(np.mean(Y,0),(Y.shape[0],1)),dtype=myfloat)<br>
+Y = spams.normalize(Y)<br>
+W0 = np.zeros((X.shape[1],Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+<span class="c001"># Regression experiments<br>
+# 100 regression problems with the same design matrix X.</span><br>
+<span class="c002">print</span>(<span class="c003">'\nVarious regression experiments'</span>)<br>
+param[<span class="c003">'compute_gram'</span>] = True<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l1'</span>)<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'square'</span><br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1'</span><br>
+<span class="c001"># param.regul='group-lasso-l2'<br>
+# param.size_group=10</span><br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c001">##    print "XX %s" %str(optim_info.shape)<br>
+##    return None</span><br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[2,:],0),np.mean(optim_info[3,:],0)))<br>
+<span class="c001">###</span><br>
+<span class="c002">print</span>(<span class="c003">'\nISTA + Regression l1'</span>)<br>
+param[<span class="c003">'ista'</span>] = True<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f\n'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<span class="c001">##</span><br>
+<span class="c002">print</span>(<span class="c003">'\nSubgradient Descent + Regression l1'</span>)<br>
+param[<span class="c003">'ista'</span>] = False<br>
+param[<span class="c003">'subgrad'</span>] = True<br>
+param[<span class="c003">'a'</span>] = 0.1<br>
+param[<span class="c003">'b'</span>] = 1000 <span class="c001"># arbitrary parameters</span><br>
+max_it = param[<span class="c003">'max_it'</span>]<br>
+it0 = param[<span class="c003">'it0'</span>]<br>
+param[<span class="c003">'max_it'</span>] = 500<br>
+param[<span class="c003">'it0'</span>] = 50<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f\n'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+param[<span class="c003">'subgrad'</span>] = False<br>
+param[<span class="c003">'max_it'</span>] = max_it<br>
+param[<span class="c003">'it0'</span>] = it0<br>
+<br>
+<span class="c001">###</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l2'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l2'</span><br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f\n'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<span class="c001">###</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l2 + sparse feature matrix'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l2'</span><br>
+(W, optim_info) = spams.fistaFlat(Y,ssp.csc_matrix(X),W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<span class="c001">###########</span><br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression Elastic-Net'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'elastic-net'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Group Lasso L2'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'group-lasso-l2'</span><br>
+param[<span class="c003">'size_group'</span>] = 2<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[2,:],0),np.mean(optim_info[3,:],0)))<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Group Lasso L2 with variable size of groups'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'group-lasso-l2'</span><br>
+param2=param.copy()<br>
+param2[<span class="c003">'groups'</span>] = np.array(np.random.randint(1,5+1,X.shape[1]),dtype = np.int32)<br>
+param2[<span class="c003">'lambda1'</span>] *= 10<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[2,:],0),np.mean(optim_info[3,:],0)))<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Trace Norm'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'trace-norm-vec'</span><br>
+param[<span class="c003">'size_group'</span>] = 5<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:],0),np.mean(optim_info[3,:])))<br>
+<br>
+<span class="c001">####</span><br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression Fused-Lasso'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'fused-lasso'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+param[<span class="c003">'lambda3'</span>] = 0.1<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression no regularization'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'none'</span><br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l1 with intercept '</span>)<br>
+param[<span class="c003">'intercept'</span>] = True<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1'</span><br>
+x1 = np.asfortranarray(np.concatenate((X,np.ones((X.shape[0],1))),1),dtype=myfloat)<br>
+W01 = np.asfortranarray(np.concatenate((W0,np.zeros((1,W0.shape[1]))),0),dtype=myfloat)<br>
+(W, optim_info) = spams.fistaFlat(Y,x1,W01,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l1 with intercept+ non-negative '</span>)<br>
+param[<span class="c003">'pos'</span>] = True<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1'</span><br>
+x1 = np.asfortranarray(np.concatenate((X,np.ones((X.shape[0],1))),1),dtype=myfloat)<br>
+W01 = np.asfortranarray(np.concatenate((W0,np.zeros((1,W0.shape[1]))),0),dtype=myfloat)<br>
+(W, optim_info) = spams.fistaFlat(Y,x1,W01,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[3,:])))<br>
+param[<span class="c003">'pos'</span>] = False<br>
+param[<span class="c003">'intercept'</span>] = False<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nISTA + Regression l0'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l0'</span><br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<span class="c001"># Classification</span><br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nOne classification experiment'</span>)<br>
+Y = np.asfortranarray(2 * np.asarray(np.random.normal(size = (100,1)) &gt; 0,dtype=myfloat) - 1)<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Logistic l1'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1'</span><br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'logistic'</span><br>
+param[<span class="c003">'lambda1'</span>] = 0.01<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<span class="c001"># can be used of course with other regularization functions, intercept,...</span><br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1'</span><br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'weighted-logistic'</span><br>
+param[<span class="c003">'lambda1'</span>] = 0.01<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<span class="c001"># can be used of course with other regularization functions, intercept,...</span><br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Logistic l1 + sparse matrix'</span>)<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'logistic'</span><br>
+(W, optim_info) = spams.fistaFlat(Y,ssp.csc_matrix(X),W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<span class="c001"># can be used of course with other regularization functions, intercept,...<br>
+<br>
+<br>
+# Multi-Class classification</span><br>
+Y = np.asfortranarray(np.ceil(5 * np.random.random(size = (100,1000))) - 1,dtype=myfloat)<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'multi-logistic'</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Multi-Class Logistic l1'</span>)<br>
+nclasses = np.max(Y[:])+1<br>
+W0 = np.zeros((X.shape[1],int(nclasses) * Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<span class="c001"># can be used of course with other regularization functions, intercept,...<br>
+<br>
+<br>
+# Multi-Task regression</span><br>
+Y = np.asfortranarray(np.random.normal(size = (100,100)),dtype=myfloat)<br>
+Y = np.asfortranarray(Y - np.tile(np.mean(Y,0),(Y.shape[0],1)),dtype=myfloat)<br>
+Y = spams.normalize(Y)<br>
+param[<span class="c003">'compute_gram'</span>] = False<br>
+W0 = np.zeros((X.shape[1],Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'square'</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l1l2 '</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1l2'</span><br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l1linf '</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1linf'</span><br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l1l2 + l1 '</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1l2+l1'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l1linf + l1 '</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1linf+l1'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression l1linf + row + columns '</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1linf-row-column'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<br>
+<span class="c001"># Multi-Task Classification</span><br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Logistic + l1l2 '</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1l2'</span><br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'logistic'</span><br>
+Y = np.asfortranarray(2 * np.asarray(np.random.normal(size = (100,100)) &gt; 1,dtype=myfloat) - 1)<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<span class="c001"># Multi-Class + Multi-Task Regularization</span><br>
+<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Multi-Class Logistic l1l2 '</span>)<br>
+Y = np.asfortranarray(np.ceil(5 * np.random.random(size = (100,1000))) - 1,dtype=myfloat)<br>
+Y = spams.normalize(Y)<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'multi-logistic'</span><br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1l2'</span><br>
+nclasses = np.max(Y[:])+1<br>
+W0 = np.zeros((X.shape[1],int(nclasses) * Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+(W, optim_info) = spams.fistaFlat(Y,X,W0,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),np.mean(optim_info[3,:])))<br>
+<span class="c001"># can be used of course with other regularization functions, intercept,...<br>
+<br>
+<br>
+#############</span></td></tr>
+</table>
+<h3 class="subsection" id="sec38">5.9  Function spams.fistaTree</h3>
+<p>
+Given a matrix <span class="c009">X</span>=[<span class="c009">x</span><sup>1</sup>,…,<span class="c009">x</span><sup><span class="c007">p</span></sup>]<sup><span class="c007">T</span></sup> in ℝ<sup><span class="c007">m</span> × <span class="c007">p</span></sup>, and a matrix <span class="c009">Y</span>=[<span class="c009">y</span><sup>1</sup>,…,<span class="c009">y</span><sup><span class="c007">n</span></sup>], it solves the optimization problems presented in the previous section, with the same regularization functions as spams.proximalTree.
+see usage details below:</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: fistaTree<br>
+#<br>
+# Usage: spams.fistaTree(Y,X,W0,tree,return_optim_info = False,numThreads =-1,max_it =1000,L0=1.0,<br>
+#                 fixed_step=False,gamma=1.5,lambda1=1.0,delta=1.0,lambda2=0.,lambda3=0.,<br>
+#                 a=1.0,b=0.,c=1.0,tol=0.000001,it0=100,max_iter_backtracking=1000,<br>
+#                 compute_gram=False,lin_admm=False,admm=False,intercept=False,<br>
+#                 resetflow=False,regul="",loss="",verbose=False,pos=False,clever=False,<br>
+#                 log=False,ista=False,subgrad=False,logName="",is_inner_weights=False,<br>
+#                 inner_weights=None,size_group=1,sqrt_step=True,transpose=False,<br>
+#                 linesearch_mode=0)<br>
+#<br>
+# Description:<br>
+#     fistaTree solves sparse regularized problems.<br>
+#         X is a design matrix of size m x p<br>
+#         X=[x^1,...,x^n]', where the x_i's are the rows of X<br>
+#         Y=[y^1,...,y^n] is a matrix of size m x n<br>
+#         It implements the algorithms FISTA, ISTA and subgradient descent for solving<br>
+#         <br>
+#           min_W  loss(W) + lambda1 psi(W)<br>
+#           <br>
+#         The function psi are those used by proximalTree (see documentation)<br>
+#         for the loss functions, see the documentation of fistaFlat<br>
+#         <br>
+#         This function can also handle intercepts (last row of W is not regularized),<br>
+#         and/or non-negativity constraints on W and sparse matrices X<br>
+#<br>
+# Inputs:<br>
+#       Y:  double dense m x n matrix<br>
+#       X:  double dense or sparse m x p matrix   <br>
+#       W0:  double dense p x n matrix or p x Nn matrix (for multi-logistic loss)<br>
+#            initial guess<br>
+#       tree: named list (see documentation of proximalTree)<br>
+#       return_optim_info:     <br>
+#               if true the function will return a tuple of matrices.<br>
+#       loss: (choice of loss, see above)<br>
+#       regul: (choice of regularization, see function proximalFlat)<br>
+#       lambda1: (regularization parameter)<br>
+#       lambda2: (optional, regularization parameter, 0 by default)<br>
+#       lambda3: (optional, regularization parameter, 0 by default)<br>
+#       verbose: (optional, verbosity level, false by default)<br>
+#       pos: (optional, adds positivity constraints on the<br>
+#           coefficients, false by default)<br>
+#       transpose: (optional, transpose the matrix in the regularization function)<br>
+#       size_group: (optional, for regularization functions assuming a group<br>
+#            structure)<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#           multi-core / multi-cpus. By default, it takes the value -1,<br>
+#           which automatically selects all the available CPUs/cores).<br>
+#       max_it: (optional, maximum number of iterations, 100 by default)<br>
+#       it0: (optional, frequency for computing duality gap, every 10 iterations by default)<br>
+#       tol: (optional, tolerance for stopping criteration, which is a relative duality gap<br>
+#           if it is available, or a relative change of parameters).<br>
+#       gamma: (optional, multiplier for increasing the parameter L in fista, 1.5 by default)<br>
+#       L0: (optional, initial parameter L in fista, 0.1 by default, should be small enough)<br>
+#       fixed_step: (deactive the line search for L in fista and use L0 instead)<br>
+#       compute_gram: (optional, pre-compute X^TX, false by default).<br>
+#       intercept: (optional, do not regularize last row of W, false by default).<br>
+#       ista: (optional, use ista instead of fista, false by default).<br>
+#       subgrad: (optional, if not ista, use subradient descent instead of fista, false by default).<br>
+#       a: <br>
+#       b: (optional, if subgrad, the gradient step is a/(t+b)<br>
+#       also similar options as proximalTree<br>
+#       <br>
+#       the function also implements the ADMM algorithm via an option admm=true. It is not documented<br>
+#       and you need to look at the source code to use it.<br>
+#       delta:    undocumented; modify at your own risks!<br>
+#       c:    undocumented; modify at your own risks!<br>
+#       max_iter_backtracking:    undocumented; modify at your own risks!<br>
+#       lin_admm:    undocumented; modify at your own risks!<br>
+#       admm:    undocumented; modify at your own risks!<br>
+#       resetflow:    undocumented; modify at your own risks!<br>
+#       clever:    undocumented; modify at your own risks!<br>
+#       log:    undocumented; modify at your own risks!<br>
+#       logName:    undocumented; modify at your own risks!<br>
+#       is_inner_weights:    undocumented; modify at your own risks!<br>
+#       inner_weights:    undocumented; modify at your own risks!<br>
+#       sqrt_step:    undocumented; modify at your own risks!<br>
+#<br>
+# Output:<br>
+#       W:  double dense p x n matrix or p x Nn matrix (for multi-logistic loss)<br>
+#       optim: optional, double dense 4 x n matrix.<br>
+#           first row: values of the objective functions.<br>
+#           third row: values of the relative duality gap (if available)<br>
+#           fourth row: number of iterations<br>
+#       optim_info:        vector of size 4, containing information of the optimization.<br>
+#             W = spams.fistaTree(Y,X,W0,tree,return_optim_info = False,...)<br>
+#             (W,optim_info) = spams.fistaTree(Y,X,W0,tree,return_optim_info = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2010 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#<br>
+# Note:<br>
+#     Valid values for the regularization parameter (regul) are:<br>
+#       "l0", "l1", "l2", "linf", "l2-not-squared", "elastic-net", "fused-lasso",<br>
+#       "group-lasso-l2", "group-lasso-linf", "sparse-group-lasso-l2",<br>
+#       "sparse-group-lasso-linf", "l1l2", "l1linf", "l1l2+l1", "l1linf+l1",<br>
+#       "tree-l0", "tree-l2", "tree-linf", "graph", "graph-ridge", "graph-l2",<br>
+#       "multi-task-tree", "multi-task-graph", "l1linf-row-column", "trace-norm",<br>
+#       "trace-norm-vec", "rank", "rank-vec", "none"<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+param = {<span class="c003">'numThreads'</span> : -1,<span class="c003">'verbose'</span> : False,<br>
+         <span class="c003">'lambda1'</span> : 0.001, <span class="c003">'it0'</span> : 10, <span class="c003">'max_it'</span> : 200,<br>
+         <span class="c003">'L0'</span> : 0.1, <span class="c003">'tol'</span> : 1e-5, <span class="c003">'intercept'</span> : False,<br>
+         <span class="c003">'pos'</span> : False}<br>
+np.random.seed(0)<br>
+m = 100<br>
+n = 10<br>
+X = np.asfortranarray(np.random.normal(size = (m,n)))<br>
+X = np.asfortranarray(X - np.tile(np.mean(X,0),(X.shape[0],1)),dtype=myfloat)<br>
+X = spams.normalize(X)<br>
+Y = np.asfortranarray(np.random.normal(size = (m,m)))<br>
+Y = np.asfortranarray(Y - np.tile(np.mean(Y,0),(Y.shape[0],1)),dtype=myfloat)<br>
+Y = spams.normalize(Y)<br>
+W0 = np.zeros((X.shape[1],Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+own_variables =  np.array([0,0,3,5,6,6,8,9],dtype=np.int32)<br>
+N_own_variables =  np.array([0,3,2,1,0,2,1,1],dtype=np.int32)<br>
+eta_g = np.array([1,1,1,2,2,2,2.5,2.5],dtype=myfloat)<br>
+groups = np.asfortranarray([[0, 0, 0, 0, 0, 0, 0, 0],<br>
+          [1, 0, 0, 0, 0, 0, 0, 0],<br>
+          [0, 1, 0, 0, 0, 0, 0, 0],<br>
+          [0, 1, 0, 0, 0, 0, 0, 0],<br>
+          [1, 0, 0, 0, 0, 0, 0, 0],<br>
+          [0, 0, 0, 0, 1, 0, 0, 0],<br>
+          [0, 0, 0, 0, 1, 0, 0, 0],<br>
+          [0, 0, 0, 0, 0, 0, 1, 0]],dtype = np.bool)<br>
+groups = ssp.csc_matrix(groups,dtype=np.bool)<br>
+tree = {<span class="c003">'eta_g'</span>: eta_g,<span class="c003">'groups'</span> : groups,<span class="c003">'own_variables'</span> : own_variables,<br>
+        <span class="c003">'N_own_variables'</span> : N_own_variables}<br>
+<span class="c002">print</span>(<span class="c003">'\nVarious regression experiments'</span>)<br>
+param[<span class="c003">'compute_gram'</span>] = True<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression tree-l2'</span>)<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'square'</span><br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-l2'</span><br>
+(W, optim_info) = spams.fistaTree(Y,X,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[3,:],0)))<br>
+<span class="c001">###</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression tree-linf'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-linf'</span><br>
+(W, optim_info) = spams.fistaTree(Y,X,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[2,:]),np.mean(optim_info[3,:],0)))<br>
+<span class="c001">###<br>
+# works also with non tree-structured regularization. tree is ignored</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression Fused-Lasso'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'fused-lasso'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.001<br>
+param[<span class="c003">'lambda3'</span>] = 0.001<br>
+(W, optim_info) = spams.fistaTree(Y,X,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[3,:],0)))<br>
+<span class="c001">###</span><br>
+<span class="c002">print</span>(<span class="c003">'\nISTA + Regression tree-l0'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-l0'</span><br>
+(W, optim_info) = spams.fistaTree(Y,X,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[3,:],0)))<br>
+<span class="c001">###</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression tree-l2 with intercept'</span>)<br>
+param[<span class="c003">'intercept'</span>] = True<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-l2'</span><br>
+x1 = np.asfortranarray(np.concatenate((X,np.ones((X.shape[0],1))),1),dtype=myfloat)<br>
+W01 = np.asfortranarray(np.concatenate((W0,np.zeros((1,W0.shape[1]))),0),dtype=myfloat)<br>
+(W, optim_info) = spams.fistaTree(Y,x1,W01,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[3,:],0)))<br>
+<span class="c001">###</span><br>
+param[<span class="c003">'intercept'</span>] = False<br>
+<br>
+<span class="c001">#    Classification</span><br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nOne classification experiment'</span>)<br>
+Y = np.asfortranarray(2 * np.asarray(np.random.normal(size = (100,Y.shape[1])) &gt; 0,dtype=myfloat) - 1)<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Logistic + tree-linf'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-linf'</span><br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'logistic'</span><br>
+param[<span class="c003">'lambda1'</span>] = 0.001<br>
+(W, optim_info) = spams.fistaTree(Y,X,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[2,:]),np.mean(optim_info[3,:],0)))<br>
+<span class="c001">###<br>
+# can be used of course with other regularization functions, intercept,...<br>
+<br>
+#  Multi-Class classification</span><br>
+Y = np.asfortranarray(np.ceil(5 * np.random.random(size = (100,Y.shape[1]))) - 1,dtype=myfloat)<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'multi-logistic'</span><br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'tree-l2'</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Multi-Class Logistic + tree-l2'</span>)<br>
+nclasses = np.max(Y[:])+1<br>
+W0 = np.zeros((X.shape[1],int(nclasses) * Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+(W, optim_info) = spams.fistaTree(Y,X,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[3,:],0)))<br>
+<span class="c001"># can be used of course with other regularization functions, intercept,...<br>
+<br>
+# Multi-Task regression</span><br>
+Y = np.asfortranarray(np.random.normal(size = (100,100)))<br>
+Y = np.asfortranarray(Y - np.tile(np.mean(Y,0),(Y.shape[0],1)),dtype=myfloat)<br>
+Y = spams.normalize(Y)<br>
+param[<span class="c003">'compute_gram'</span>] = False<br>
+param[<span class="c003">'verbose'</span>] = True   <span class="c001"># verbosity, False by default</span><br>
+W0 = np.zeros((X.shape[1],Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'square'</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression  multi-task-tree'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'multi-task-tree'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.001<br>
+(W, optim_info) = spams.fistaTree(Y,X,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[2,:]),np.mean(optim_info[3,:],0)))<br>
+<br>
+<span class="c001"># Multi-Task Classification</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Logistic + multi-task-tree'</span>)<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'multi-task-tree'</span><br>
+param[<span class="c003">'lambda2'</span>] = 0.001<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'logistic'</span><br>
+Y = np.asfortranarray(2 * np.asarray(np.random.normal(size = (100,Y.shape[1])) &gt; 0,dtype=myfloat) - 1)<br>
+(W, optim_info) = spams.fistaTree(Y,X,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[2,:]),np.mean(optim_info[3,:],0)))<br>
+<br>
+<span class="c001">#  Multi-Class + Multi-Task Regularization</span><br>
+param[<span class="c003">'verbose'</span>] = False<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Multi-Class Logistic +multi-task-tree'</span>)<br>
+Y = np.asfortranarray(np.ceil(5 * np.random.random(size = (100,Y.shape[1]))) - 1,dtype=myfloat)<br>
+param[<span class="c003">'loss'</span>] = <span class="c003">'multi-logistic'</span><br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'multi-task-tree'</span><br>
+nclasses = np.max(Y[:])+1<br>
+W0 = np.zeros((X.shape[1],int(nclasses) * Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+(W, optim_info) = spams.fistaTree(Y,X,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[2,:]),np.mean(optim_info[3,:],0)))<br>
+<span class="c001"># can be used of course with other regularization functions, intercept,...</span><br>
+<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Multi-Class Logistic +multi-task-tree + sparse matrix'</span>)<br>
+nclasses = np.max(Y[:])+1<br>
+W0 = np.zeros((X.shape[1],int(nclasses) * Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+X2 = ssp.csc_matrix(X)<br>
+(W, optim_info) = spams.fistaTree(Y,X2,W0,tree,True,**param)<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:],0),np.mean(optim_info[2,:]),np.mean(optim_info[3,:],0)))</td></tr>
+</table>
+<h3 class="subsection" id="sec39">5.10  Function spams.fistaGraph</h3>
+<p>
+Given a matrix <span class="c009">X</span>=[<span class="c009">x</span><sup>1</sup>,…,<span class="c009">x</span><sup><span class="c007">p</span></sup>]<sup><span class="c007">T</span></sup> in ℝ<sup><span class="c007">m</span> × <span class="c007">p</span></sup>, and a matrix <span class="c009">Y</span>=[<span class="c009">y</span><sup>1</sup>,…,<span class="c009">y</span><sup><span class="c007">n</span></sup>], it solves the optimization problems presented in the previous section, with the same regularization functions as spams.proximalGraph.
+see usage details below:</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: fistaGraph<br>
+#<br>
+# Usage: spams.fistaGraph(Y,X,W0,graph,return_optim_info = False,numThreads =-1,max_it =1000,L0=1.0,<br>
+#                  fixed_step=False,gamma=1.5,lambda1=1.0,delta=1.0,lambda2=0.,lambda3=0.,<br>
+#                  a=1.0,b=0.,c=1.0,tol=0.000001,it0=100,max_iter_backtracking=1000,<br>
+#                  compute_gram=False,lin_admm=False,admm=False,intercept=False,<br>
+#                  resetflow=False,regul="",loss="",verbose=False,pos=False,clever=False,<br>
+#                  log=False,ista=False,subgrad=False,logName="",is_inner_weights=False,<br>
+#                  inner_weights=None,size_group=1,sqrt_step=True,transpose=False,<br>
+#                  linesearch_mode=0)<br>
+#<br>
+# Description:<br>
+#     fistaGraph solves sparse regularized problems.<br>
+#         X is a design matrix of size m x p<br>
+#         X=[x^1,...,x^n]', where the x_i's are the rows of X<br>
+#         Y=[y^1,...,y^n] is a matrix of size m x n<br>
+#         It implements the algorithms FISTA, ISTA and subgradient descent.<br>
+#         <br>
+#         It implements the algorithms FISTA, ISTA and subgradient descent for solving<br>
+#         <br>
+#           min_W  loss(W) + lambda1 psi(W)<br>
+#           <br>
+#         The function psi are those used by proximalGraph (see documentation)<br>
+#         for the loss functions, see the documentation of fistaFlat<br>
+#         <br>
+#         This function can also handle intercepts (last row of W is not regularized),<br>
+#         and/or non-negativity constraints on W.<br>
+#<br>
+# Inputs:<br>
+#       Y:  double dense m x n matrix<br>
+#       X:  double dense or sparse m x p matrix   <br>
+#       W0:  double dense p x n matrix or p x Nn matrix (for multi-logistic loss)<br>
+#            initial guess<br>
+#       graph: struct (see documentation of proximalGraph)<br>
+#       return_optim_info:     <br>
+#               if true the function will return a tuple of matrices.<br>
+#       loss: (choice of loss, see above)<br>
+#       regul: (choice of regularization, see function proximalFlat)<br>
+#       lambda1: (regularization parameter)<br>
+#       lambda2: (optional, regularization parameter, 0 by default)<br>
+#       lambda3: (optional, regularization parameter, 0 by default)<br>
+#       verbose: (optional, verbosity level, false by default)<br>
+#       pos: (optional, adds positivity constraints on the<br>
+#           coefficients, false by default)<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#           multi-core / multi-cpus. By default, it takes the value -1,<br>
+#           which automatically selects all the available CPUs/cores).<br>
+#       max_it: (optional, maximum number of iterations, 100 by default)<br>
+#       it0: (optional, frequency for computing duality gap, every 10 iterations by default)<br>
+#       tol: (optional, tolerance for stopping criteration, which is a relative duality gap<br>
+#           if it is available, or a relative change of parameters).<br>
+#       gamma: (optional, multiplier for increasing the parameter L in fista, 1.5 by default)<br>
+#       L0: (optional, initial parameter L in fista, 0.1 by default, should be small enough)<br>
+#       fixed_step: (deactive the line search for L in fista and use L0 instead)<br>
+#       compute_gram: (optional, pre-compute X^TX, false by default).<br>
+#       intercept: (optional, do not regularize last row of W, false by default).<br>
+#       ista: (optional, use ista instead of fista, false by default).<br>
+#       subgrad: (optional, if not ista, use subradient descent instead of fista, false by default).<br>
+#       a: <br>
+#       b: (optional, if subgrad, the gradient step is a/(t+b)<br>
+#       also similar options as proximalTree<br>
+#       <br>
+#       the function also implements the ADMM algorithm via an option admm=true. It is not documented<br>
+#       and you need to look at the source code to use it.<br>
+#       delta:    undocumented; modify at your own risks!<br>
+#       c:    undocumented; modify at your own risks!<br>
+#       max_iter_backtracking:    undocumented; modify at your own risks!<br>
+#       lin_admm:    undocumented; modify at your own risks!<br>
+#       admm:    undocumented; modify at your own risks!<br>
+#       resetflow:    undocumented; modify at your own risks!<br>
+#       clever:    undocumented; modify at your own risks!<br>
+#       log:    undocumented; modify at your own risks!<br>
+#       logName:    undocumented; modify at your own risks!<br>
+#       is_inner_weights:    undocumented; modify at your own risks!<br>
+#       inner_weights:    undocumented; modify at your own risks!<br>
+#       sqrt_step:    undocumented; modify at your own risks!<br>
+#       size_group:    undocumented; modify at your own risks!<br>
+#       transpose:    undocumented; modify at your own risks!<br>
+#<br>
+# Output:<br>
+#       W:  double dense p x n matrix or p x Nn matrix (for multi-logistic loss)<br>
+#       optim: optional, double dense 4 x n matrix.<br>
+#           first row: values of the objective functions.<br>
+#           third row: values of the relative duality gap (if available)<br>
+#           fourth row: number of iterations<br>
+#       optim_info:        vector of size 4, containing information of the optimization.<br>
+#             W = spams.fistaGraph(Y,X,W0,graph,return_optim_info = False,...)<br>
+#             (W,optim_info) = spams.fistaGraph(Y,X,W0,graph,return_optim_info = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2010 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#<br>
+# Note:<br>
+#     Valid values for the regularization parameter (regul) are:<br>
+#       "l0", "l1", "l2", "linf", "l2-not-squared", "elastic-net", "fused-lasso",<br>
+#       "group-lasso-l2", "group-lasso-linf", "sparse-group-lasso-l2",<br>
+#       "sparse-group-lasso-linf", "l1l2", "l1linf", "l1l2+l1", "l1linf+l1",<br>
+#       "tree-l0", "tree-l2", "tree-linf", "graph", "graph-ridge", "graph-l2",<br>
+#       "multi-task-tree", "multi-task-graph", "l1linf-row-column", "trace-norm",<br>
+#       "trace-norm-vec", "rank", "rank-vec", "none"<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+np.random.seed(0)<br>
+num_threads = -1 <span class="c001"># all cores (-1 by default)</span><br>
+verbose = False   <span class="c001"># verbosity, false by default</span><br>
+lambda1 = 0.1 <span class="c001"># regularization ter</span><br>
+it0 = 1      <span class="c001"># frequency for duality gap computations</span><br>
+max_it = 100 <span class="c001"># maximum number of iterations</span><br>
+L0 = 0.1<br>
+tol = 1e-5<br>
+intercept = False<br>
+pos = False<br>
+<br>
+eta_g = np.array([1, 1, 1, 1, 1],dtype=myfloat)<br>
+<br>
+groups = ssp.csc_matrix(np.array([[0, 0, 0, 1, 0],<br>
+                   [0, 0, 0, 0, 0],<br>
+                   [0, 0, 0, 0, 0],<br>
+                   [0, 0, 0, 0, 0],<br>
+                   [0, 0, 1, 0, 0]],dtype=np.bool),dtype=np.bool)<br>
+<br>
+groups_var = ssp.csc_matrix(np.array([[1, 0, 0, 0, 0],<br>
+                       [1, 0, 0, 0, 0],<br>
+                       [1, 0, 0, 0, 0],<br>
+                       [1, 1, 0, 0, 0],<br>
+                       [0, 1, 0, 1, 0],<br>
+                       [0, 1, 0, 1, 0],<br>
+                       [0, 1, 0, 0, 1],<br>
+                       [0, 0, 0, 0, 1],<br>
+                       [0, 0, 0, 0, 1],<br>
+                       [0, 0, 1, 0, 0]],dtype=np.bool),dtype=np.bool)<br>
+<br>
+graph = {<span class="c003">'eta_g'</span>: eta_g,<span class="c003">'groups'</span> : groups,<span class="c003">'groups_var'</span> : groups_var}<br>
+<br>
+verbose = True<br>
+X = np.asfortranarray(np.random.normal(size = (100,10)))<br>
+X = np.asfortranarray(X - np.tile(np.mean(X,0),(X.shape[0],1)),dtype=myfloat)<br>
+X = spams.normalize(X)<br>
+Y = np.asfortranarray(np.random.normal(size = (100,1)))<br>
+Y = np.asfortranarray(Y - np.tile(np.mean(Y,0),(Y.shape[0],1)),dtype=myfloat)<br>
+Y = spams.normalize(Y)<br>
+W0 = np.zeros((X.shape[1],Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+<span class="c001"># Regression experiments<br>
+# 100 regression problems with the same design matrix X.</span><br>
+<span class="c002">print</span>(<span class="c003">'\nVarious regression experiments'</span>)<br>
+compute_gram = True<br>
+<span class="c001">#</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression graph'</span>)<br>
+loss = <span class="c003">'square'</span><br>
+regul = <span class="c003">'graph'</span><br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),t,np.mean(optim_info[3,:])))<br>
+<span class="c001">#</span><br>
+<span class="c002">print</span>(<span class="c003">'\nADMM + Regression graph'</span>)<br>
+admm = True<br>
+lin_admm = True<br>
+c = 1<br>
+delta = 1<br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul,admm = admm,lin_admm = lin_admm,c = c,delta = delta)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),t,np.mean(optim_info[3,:])))<br>
+<span class="c001">#</span><br>
+admm = False<br>
+max_it = 5<br>
+it0 = 1<br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul,admm = admm,lin_admm = lin_admm,c = c,delta = delta)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),t,np.mean(optim_info[3,:])))<br>
+<span class="c001">#<br>
+#  works also with non graph-structured regularization. graph is ignored</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression Fused-Lasso'</span>)<br>
+regul = <span class="c003">'fused-lasso'</span><br>
+lambda2 = 0.01<br>
+lambda3 = 0.01<br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul,admm = admm,lin_admm = lin_admm,c = c,<br>
+    lambda2 = lambda2,lambda3 = lambda3,delta = delta)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),t,np.mean(optim_info[3,:])))<br>
+<span class="c001">#</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression graph with intercept'</span>)<br>
+regul = <span class="c003">'graph'</span><br>
+intercept = True<br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul,admm = admm,lin_admm = lin_admm,c = c,<br>
+    lambda2 = lambda2,lambda3 = lambda3,delta = delta)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),t,np.mean(optim_info[3,:])))<br>
+intercept = False<br>
+<br>
+<span class="c001"># Classification</span><br>
+<span class="c002">print</span>(<span class="c003">'\nOne classification experiment'</span>)<br>
+Y = np.asfortranarray( 2 * np.asfortranarray(np.random.normal(size = (100,Y.shape[1])) &gt; 0,dtype = myfloat) -1)<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA +  Logistic + graph-linf'</span>)<br>
+loss = <span class="c003">'logistic'</span><br>
+regul = <span class="c003">'graph'</span><br>
+lambda1 = 0.01<br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul,admm = admm,lin_admm = lin_admm,c = c,<br>
+    lambda2 = lambda2,lambda3 = lambda3,delta = delta)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),t,np.mean(optim_info[3,:])))<br>
+<span class="c001">#<br>
+# can be used of course with other regularization functions, intercept,...<br>
+<br>
+# Multi-Class classification</span><br>
+<br>
+Y = np.asfortranarray(np.ceil(5 * np.random.random(size = (100,Y.shape[1]))) - 1,dtype=myfloat)<br>
+loss = <span class="c003">'multi-logistic'</span><br>
+regul = <span class="c003">'graph'</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Multi-Class Logistic + graph'</span>)<br>
+nclasses = np.max(Y) + 1<br>
+W0 = np.zeros((X.shape[1],int(nclasses) * Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul,admm = admm,lin_admm = lin_admm,c = c,<br>
+    lambda2 = lambda2,lambda3 = lambda3,delta = delta)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),t,np.mean(optim_info[3,:])))<br>
+<span class="c001">#<br>
+# can be used of course with other regularization functions, intercept,...<br>
+# Multi-Task regression</span><br>
+Y = np.asfortranarray(np.random.normal(size = (100,Y.shape[1])))<br>
+Y = np.asfortranarray(Y - np.tile(np.mean(Y,0),(Y.shape[0],1)),dtype=myfloat)<br>
+Y = spams.normalize(Y)<br>
+W0 = W0 = np.zeros((X.shape[1],Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+compute_gram = False<br>
+verbose = True<br>
+loss = <span class="c003">'square'</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Regression multi-task-graph'</span>)<br>
+regul = <span class="c003">'multi-task-graph'</span><br>
+lambda2 = 0.01<br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul,admm = admm,lin_admm = lin_admm,c = c,<br>
+    lambda2 = lambda2,lambda3 = lambda3,delta = delta)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),t,np.mean(optim_info[3,:])))<br>
+<span class="c001">#<br>
+# Multi-Task Classification</span><br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Logistic + multi-task-graph'</span>)<br>
+regul = <span class="c003">'multi-task-graph'</span><br>
+lambda2 = 0.01<br>
+loss = <span class="c003">'logistic'</span><br>
+Y = np.asfortranarray( 2 * np.asfortranarray(np.random.normal(size = (100,Y.shape[1])) &gt; 0,dtype = myfloat) -1)<br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul,admm = admm,lin_admm = lin_admm,c = c,<br>
+    lambda2 = lambda2,lambda3 = lambda3,delta = delta)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),t,np.mean(optim_info[3,:])))<br>
+<span class="c001"># Multi-Class + Multi-Task Regularization</span><br>
+verbose = False<br>
+<span class="c002">print</span>(<span class="c003">'\nFISTA + Multi-Class Logistic +multi-task-graph'</span>)<br>
+Y = np.asfortranarray(np.ceil(5 * np.random.random(size = (100,Y.shape[1]))) - 1,dtype=myfloat)<br>
+loss = <span class="c003">'multi-logistic'</span><br>
+regul = <span class="c003">'multi-task-graph'</span><br>
+nclasses = np.max(Y) + 1<br>
+W0 = np.zeros((X.shape[1],int(nclasses) * Y.shape[1]),dtype=myfloat,order=<span class="c003">"F"</span>)<br>
+tic = time.time()<br>
+(W, optim_info) = spams.fistaGraph(<br>
+    Y,X,W0,graph,True,numThreads = num_threads,verbose = verbose,<br>
+    lambda1 = lambda1,it0 = it0,max_it = max_it,L0 = L0,tol = tol,<br>
+    intercept = intercept,pos = pos,compute_gram = compute_gram,<br>
+    loss = loss,regul = regul,admm = admm,lin_admm = lin_admm,c = c,<br>
+    lambda2 = lambda2,lambda3 = lambda3,delta = delta)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'mean loss: %f, mean relative duality_gap: %f, time: %f, number of iterations: %f'</span> %(np.mean(optim_info[0,:]),np.mean(optim_info[2,:]),t,np.mean(optim_info[3,:])))<br>
+<span class="c001"># can be used of course with other regularization functions, intercept,...</span></td></tr>
+</table>
+<h3 class="subsection" id="sec40">5.11  Function spams.fistaPathCoding</h3>
+<p>
+Similarly, the toolbox handles the penalties of [<a href="doc_spams010.html#mairal14">24</a>] with the following function
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# The python function is not yet implemented.<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.</p>
+<h3 class="subsection" id="sec41">5.12  Function solverPoisson</h3>
+<p>
+The following problem is addressed here
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">   </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">w</span> ∈ ℝ<sub>+</sub><sup><span class="c007">p</span></sup></td></tr>
+</table></td><td class="dcell">  </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">p</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">j</span>=1</td></tr>
+</table></td><td class="dcell"> <span class="c009">x</span><sub><span class="c007">i</span></sub><sup>⊤</sup><span class="c009">w</span> + δ − <span class="c007">y</span><sub><span class="c007">i</span></sub> log(<span class="c009">x</span><sub><span class="c007">i</span></sub><sup>⊤</sup><span class="c009">w</span> +δ) + λ ψ(<span class="c009">w</span>).
+</td></tr>
+</table><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# The python function is not yet implemented.<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.</p>
+<h3 class="subsection" id="sec42">5.13  Function mexIncrementalProx</h3>
+<p>
+This implements the incremental solver MISO [<a href="doc_spams010.html#mairal16">25</a>].
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# The python function is not yet implemented.<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.</p>
+<h3 class="subsection" id="sec43">5.14  Function mexStochasticProx</h3>
+<p>
+This implements the stochastic proximal gradient solver [<a href="doc_spams010.html#mairal15">26</a>].
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# The python function is not yet implemented.<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.</p>
+<hr>
+<a href="doc_spams005.html"><img src="previous_motif.gif" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.gif" alt="Up"></a>
+<a href="doc_spams007.html"><img src="next_motif.gif" alt="Next"></a>
+</body>
+</html>

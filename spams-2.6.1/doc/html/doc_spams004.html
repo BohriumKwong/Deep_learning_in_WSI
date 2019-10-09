@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.23">
+
+<META name="Author" content="Julien Mairal">
+<link rel="stylesheet" href="doc_spams.css"><link rel="stylesheet" type="text/css" href="doc_spams.css">
+<title>Dictionary Learning and Matrix Factorization Toolbox</title>
+</head>
+<body>
+<a href="doc_spams003.html"><img src="previous_motif.gif" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.gif" alt="Up"></a>
+<a href="doc_spams005.html"><img src="next_motif.gif" alt="Next"></a>
+<hr>
+<h2 class="section" id="sec4">3  Dictionary Learning and Matrix Factorization Toolbox</h2>
+<ul>
+<li><a href="doc_spams004.html#sec5">Function spams.trainDL</a>
+</li><li><a href="doc_spams004.html#sec6">Function spams.trainDL_Memory</a>
+</li><li><a href="doc_spams004.html#sec7">Function spams.structTrainDL</a>
+</li><li><a href="doc_spams004.html#sec8">Function nmf</a>
+</li><li><a href="doc_spams004.html#sec9">Function nnsc</a>
+</li><li><a href="doc_spams004.html#sec10">Function spams.archetypalAnalysis</a>
+</li></ul>
+<p>
+This is the section for dictionary learning and matrix factorization, corresponding to [<a href="doc_spams010.html#mairal7">20</a>, <a href="doc_spams010.html#mairal9">21</a>].</p>
+<h3 class="subsection" id="sec5">3.1  Function spams.trainDL</h3>
+<p>
+This is the main function of the toolbox, implementing the learning algorithms of [<a href="doc_spams010.html#mairal9">21</a>].
+Given a training set <span class="c009">x</span><sup>1</sup>,…, . It aims at solving
+</p><table class="display dcenter"><tr class="c016"><td class="dcell">
+</td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012"><span class="c009">D</span> ∈ <span class="c008">C</span></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">lim</td></tr>
+<tr><td class="dcell c012"><span class="c007">n</span> → +∞</td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012"><span class="c007">n</span></td></tr>
+<tr><td class="dcell c012"><span class="c006">∑</span></td></tr>
+<tr><td class="dcell c012"><span class="c007">i</span>=1</td></tr>
+</table></td><td class="dcell"> </td><td class="dcell"><table class="display"><tr><td class="dcell c012">&nbsp;</td></tr>
+<tr><td class="dcell c012">min</td></tr>
+<tr><td class="dcell c012">α<sup><span class="c007">i</span></sup></td></tr>
+</table></td><td class="dcell"> </td><td class="dcell">⎛<br>
+⎜<br>
+⎝</td><td class="dcell"><table class="display"><tr><td class="dcell c012">1</td></tr>
+<tr><td class="hbar"></td></tr>
+<tr><td class="dcell c012">2</td></tr>
+</table></td><td class="dcell"> ||<span class="c009">x</span><sup><span class="c007">i</span></sup>−<span class="c009">D</span>α<sup><span class="c007">i</span></sup>||<sub>2</sub><sup>2</sup> + ψ(α<sup><span class="c007">i</span></sup>)</td><td class="dcell">⎞<br>
+⎟<br>
+⎠</td><td class="dcell">.
+    (1)</td></tr>
+</table><p>
+ψ is a sparsity-inducing regularizer and <span class="c008">C</span> is a constraint set for the dictionary. As shown in [<a href="doc_spams010.html#mairal9">21</a>]
+and in the help file below, various combinations can be used for ψ and <span class="c008">C</span> for solving different matrix factorization problems.
+What is more, positivity constraints can be added to α as well. The function admits several modes for choosing the optimization parameters, using the parameter-free strategy proposed in [<a href="doc_spams010.html#mairal7">20</a>], or using the parameters <span class="c007">t</span><sub>0</sub> and ρ presented
+in [<a href="doc_spams010.html#mairal9">21</a>]. <span class="c010">Note that for problems of a reasonable size, and when </span>ψ<span class="c010"> is the </span>ℓ<sub>1</sub><span class="c010">-norm,
+the function spams.trainDL_Memory can be faster but uses more memory.</span></p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: trainDL<br>
+#<br>
+# Usage: spams.trainDL(X,return_model= False,model= None,D = None,numThreads = -1,batchsize = -1,<br>
+#               K= -1,lambda1= None,lambda2= 10e-10,iter=-1,t0=1e-5,mode=spams_wrap.PENALTY,<br>
+#               posAlpha=False,posD=False,expand=False,modeD=spams_wrap.L2,whiten=False,<br>
+#               clean=True,verbose=True,gamma1=0.,gamma2=0.,rho=1.0,iter_updateD=None,<br>
+#               stochastic_deprecated=False,modeParam=0,batch=False,log_deprecated=False,<br>
+#               logName='')<br>
+#<br>
+# Description:<br>
+#     trainDL is an efficient implementation of the<br>
+#     dictionary learning technique presented in<br>
+#     <br>
+#     "Online Learning for Matrix Factorization and Sparse Coding"<br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     arXiv:0908.0050<br>
+#     <br>
+#     "Online Dictionary Learning for Sparse Coding"      <br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     ICML 2009.<br>
+#     <br>
+#     Note that if you use mode=1 or 2, if the training set has a<br>
+#     reasonable size and you have enough memory on your computer, you <br>
+#     should use trainDL_Memory instead.<br>
+#     <br>
+#     <br>
+#     It addresses the dictionary learning problems<br>
+#        1) if mode=0<br>
+#     min_{D in C} (1/n) sum_{i=1}^n (1/2)||x_i-Dalpha_i||_2^2  s.t. ...<br>
+#                                                  ||alpha_i||_1 &lt;= lambda1<br>
+#        2) if mode=1<br>
+#     min_{D in C} (1/n) sum_{i=1}^n  ||alpha_i||_1  s.t.  ...<br>
+#                                           ||x_i-Dalpha_i||_2^2 &lt;= lambda1<br>
+#        3) if mode=2<br>
+#     min_{D in C} (1/n) sum_{i=1}^n (1/2)||x_i-Dalpha_i||_2^2 + ... <br>
+#                                  lambda1||alpha_i||_1 + lambda1_2||alpha_i||_2^2<br>
+#        4) if mode=3, the sparse coding is done with OMP<br>
+#     min_{D in C} (1/n) sum_{i=1}^n (1/2)||x_i-Dalpha_i||_2^2  s.t. ... <br>
+#                                                  ||alpha_i||_0 &lt;= lambda1<br>
+#        5) if mode=4, the sparse coding is done with OMP<br>
+#     min_{D in C} (1/n) sum_{i=1}^n  ||alpha_i||_0  s.t.  ...<br>
+#                                           ||x_i-Dalpha_i||_2^2 &lt;= lambda1<br>
+#        6) if mode=5, the sparse coding is done with OMP<br>
+#     min_{D in C} (1/n) sum_{i=1}^n 0.5||x_i-Dalpha_i||_2^2 +lambda1||alpha_i||_0  <br>
+#     <br>
+#     <br>
+#     C is a convex set verifying<br>
+#        1) if modeD=0<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  ||d_j||_2^2 &lt;= 1 }<br>
+#        2) if modeD=1<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  ||d_j||_2^2 + ... <br>
+#                                                  gamma1||d_j||_1 &lt;= 1 }<br>
+#        3) if modeD=2<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  ||d_j||_2^2 + ... <br>
+#                                  gamma1||d_j||_1 + gamma2 FL(d_j) &lt;= 1 }<br>
+#        4) if modeD=3<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  (1-gamma1)||d_j||_2^2 + ... <br>
+#                                  gamma1||d_j||_1 &lt;= 1 }<br>
+#                                  <br>
+#     Potentially, n can be very large with this algorithm.<br>
+#<br>
+# Inputs:<br>
+#       X:  double m x n matrix   (input signals)<br>
+#               m is the signal size<br>
+#               n is the number of signals to decompose<br>
+#       return_model:     <br>
+#               if true the function will return the model<br>
+#               as a named list ('A' = A, 'B' = B, 'iter' = n)<br>
+#       model:        None or model (as A,B,iter) to use as initialisation<br>
+#       D: (optional) double m x p matrix   (dictionary)<br>
+#         p is the number of elements in the dictionary<br>
+#         When D is not provided, the dictionary is initialized <br>
+#         with random elements from the training set.<br>
+#       K: (size of the dictionary, optional is D is provided)<br>
+#       lambda1:  (parameter)<br>
+#       lambda2:  (optional, by default 0)<br>
+#       iter: (number of iterations).  If a negative number is <br>
+#          provided it will perform the computation during the<br>
+#          corresponding number of seconds. For instance iter=-5<br>
+#          learns the dictionary during 5 seconds.<br>
+#       mode: (optional, see above, by default 2) <br>
+#       posAlpha: (optional, adds positivity constraints on the<br>
+#         coefficients, false by default, not compatible with <br>
+#         mode =3,4)<br>
+#       modeD: (optional, see above, by default 0)<br>
+#       posD: (optional, adds positivity constraints on the <br>
+#         dictionary, false by default, not compatible with <br>
+#         modeD=2)<br>
+#       gamma1: (optional parameter for modeD &gt;= 1)<br>
+#       gamma2: (optional parameter for modeD = 2)<br>
+#       batchsize: (optional, size of the minibatch, by default <br>
+#          512)<br>
+#       iter_updateD: (optional, number of BCD iterations for the dictionary<br>
+#          update step, by default 1)<br>
+#       modeParam: (optimization mode).<br>
+#          1) if modeParam=0, the optimization uses the <br>
+#             parameter free strategy of the ICML paper<br>
+#          2) if modeParam=1, the optimization uses the <br>
+#             parameters rho as in arXiv:0908.0050<br>
+#          3) if modeParam=2, the optimization uses exponential <br>
+#             decay weights with updates of the form <br>
+#             A_{t} &lt;- rho A_{t-1} + alpha_t alpha_t^T<br>
+#       rho: (optional) tuning parameter (see paper arXiv:0908.0050)<br>
+#       t0: (optional) tuning parameter (see paper arXiv:0908.0050)<br>
+#       clean: (optional, true by default. prunes <br>
+#          automatically the dictionary from unused elements).<br>
+#       verbose: (optional, true by default, increase verbosity)<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#          multi-core / multi-cpus. By default, it takes the value -1,<br>
+#          which automatically selects all the available CPUs/cores).<br>
+#       expand:    undocumented; modify at your own risks!<br>
+#       whiten:    undocumented; modify at your own risks!<br>
+#       stochastic_deprecated:    undocumented; modify at your own risks!<br>
+#       batch:    undocumented; modify at your own risks!<br>
+#       log_deprecated:    undocumented; modify at your own risks!<br>
+#       logName:    undocumented; modify at your own risks!<br>
+#<br>
+# Output:<br>
+#       D:     double m x p matrix   (dictionary)<br>
+#       model:  the model as A B iter<br>
+#        D = spams.trainDL(X,return_model = False,...)<br>
+#        (D,model) = spams.trainDL(X,return_model = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2009 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#<br>
+# Note:<br>
+#     this function admits a few experimental usages, which have not<br>
+#     been extensively tested:<br>
+#         - single precision setting <br>
+#</span></td></tr>
+</table><p>The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+img_file = <span class="c003">'boat.png'</span><br>
+<span class="c002">try</span>:<br>
+    img = Image.open(img_file)<br>
+<span class="c002">except</span>:<br>
+    <span class="c002">print</span>(<span class="c003">"Cannot load image %s : skipping test"</span> %img_file)<br>
+I = np.array(img) / 255.<br>
+<span class="c002">if</span> I.ndim == 3:<br>
+    A = np.asfortranarray(I.reshape((I.shape[0],I.shape[1] * I.shape[2])))<br>
+    rgb = True<br>
+<span class="c002">else</span>:<br>
+    A = np.asfortranarray(I)<br>
+    rgb = False<br>
+<br>
+m = 8<br>
+n = 8<br>
+X = spams.im2col_sliding(A,m,n,rgb)<br>
+<br>
+X = X - np.tile(np.mean(X,0),(X.shape[0],1))<br>
+X = np.asfortranarray(X / np.tile(np.sqrt((X * X).sum(axis=0)),(X.shape[0],1)),dtype = myfloat)<br>
+param = { <span class="c003">'K'</span> : 100, <span class="c001"># learns a dictionary with 100 elements</span><br>
+          <span class="c003">'lambda1'</span> : 0.15, <span class="c003">'numThreads'</span> : 4, <span class="c003">'batchsize'</span> : 400,<br>
+          <span class="c003">'iter'</span> : 1000}<br>
+<br>
+<span class="c001">########## FIRST EXPERIMENT ###########</span><br>
+tic = time.time()<br>
+D = spams.trainDL(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+<br>
+<span class="c001">##param['approx'] = 0<br>
+# save dictionnary as dict.png</span><br>
+_objective(X,D,param,<span class="c003">'dict'</span>)<br>
+<br>
+<span class="c001">#### SECOND EXPERIMENT ####</span><br>
+<span class="c002">print</span>(<span class="c003">"*********** SECOND EXPERIMENT ***********"</span>)<br>
+<br>
+X1 = X[:,0:X.shape[1]//2]<br>
+X2 = X[:,X.shape[1]//2 -1:]<br>
+param[<span class="c003">'iter'</span>] = 500<br>
+tic = time.time()<br>
+(D,model) = spams.trainDL(X1,return_model = True,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f\n'</span> %t)<br>
+<br>
+_objective(X,D,param,<span class="c003">'dict1'</span>)<br>
+<br>
+<span class="c001"># Then reuse the learned model to retrain a few iterations more.</span><br>
+param2 = param.copy()<br>
+param2[<span class="c003">'D'</span>] = D<br>
+tic = time.time()<br>
+(D,model) = spams.trainDL(X2,return_model = True,model = model,**param2)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+_objective(X,D,param,<span class="c003">'dict2'</span>)<br>
+<br>
+<span class="c001">#################### THIRD &amp; FOURTH EXPERIMENT ######################<br>
+# let us add sparsity to the dictionary itself</span><br>
+<br>
+<span class="c002">print</span>(<span class="c003">'*********** THIRD EXPERIMENT ***********'</span>)<br>
+param[<span class="c003">'modeParam'</span>] = 0<br>
+param[<span class="c003">'iter'</span>] = 1000<br>
+param[<span class="c003">'gamma1'</span>] = 0.3<br>
+param[<span class="c003">'modeD'</span>] = 1<br>
+<br>
+tic = time.time()<br>
+D = spams.trainDL(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+_objective(X,D,param)<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'*********** FOURTH EXPERIMENT ***********'</span>)<br>
+param[<span class="c003">'modeParam'</span>] = 0<br>
+param[<span class="c003">'iter'</span>] = 1000<br>
+param[<span class="c003">'gamma1'</span>] = 0.3<br>
+param[<span class="c003">'modeD'</span>] = 3<br>
+<br>
+tic = time.time()<br>
+D = spams.trainDL(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+_objective(X,D,param)</td></tr>
+</table>
+<h3 class="subsection" id="sec6">3.2  Function spams.trainDL_Memory</h3>
+<p>
+Memory-consuming version of spams.trainDL. This function is well adapted to small/medium-size problems:
+It requires storing all the coefficients α and is therefore impractical
+for very large datasets. However, in many situations, one can afford this memory cost and it is better to use this method, which
+is faster than spams.trainDL.
+Note that unlike spams.trainDL this function does not allow warm-restart.</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: trainDL_Memory<br>
+#<br>
+# Usage: spams.trainDL_Memory(X,D = None,numThreads = -1,batchsize = -1,K= -1,lambda1= None,iter=-1,<br>
+#                      t0=1e-5,mode=spams_wrap.PENALTY,posD=False,expand=False,<br>
+#                      modeD=spams_wrap.L2,whiten=False,clean=True,gamma1=0.,gamma2=0.,<br>
+#                      rho=1.0,iter_updateD=1,stochastic_deprecated=False,modeParam=0,<br>
+#                      batch=False,log_deprecated=False,logName='')<br>
+#<br>
+# Description:<br>
+#     trainDL_Memory is an efficient but memory consuming <br>
+#     variant of the dictionary learning technique presented in<br>
+#     <br>
+#     "Online Learning for Matrix Factorization and Sparse Coding"<br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     arXiv:0908.0050<br>
+#     <br>
+#     "Online Dictionary Learning for Sparse Coding"      <br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     ICML 2009.<br>
+#     <br>
+#     Contrary to the approaches above, the algorithm here <br>
+#        does require to store all the coefficients from all the training<br>
+#        signals. For this reason this variant can not be used with large<br>
+#        training sets, but is more efficient than the regular online<br>
+#        approach for training sets of reasonable size.<br>
+#        <br>
+#     It addresses the dictionary learning problems<br>
+#        1) if mode=1<br>
+#     min_{D in C} (1/n) sum_{i=1}^n  ||alpha_i||_1  s.t.  ...<br>
+#                                         ||x_i-Dalpha_i||_2^2 &lt;= lambda1<br>
+#        2) if mode=2<br>
+#     min_{D in C} (1/n) sum_{i=1}^n (1/2)||x_i-Dalpha_i||_2^2 + ... <br>
+#                                                      lambda1||alpha_i||_1  <br>
+#                                                      <br>
+#     C is a convex set verifying<br>
+#        1) if modeD=0<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  ||d_j||_2^2 &lt;= 1 }<br>
+#        1) if modeD=1<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  ||d_j||_2^2 + ... <br>
+#                                                  gamma1||d_j||_1 &lt;= 1 }<br>
+#        1) if modeD=2<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  ||d_j||_2^2 + ... <br>
+#                                  gamma1||d_j||_1 + gamma2 FL(d_j) &lt;= 1 }<br>
+#                                  <br>
+#     Potentially, n can be very large with this algorithm.<br>
+#<br>
+# Inputs:<br>
+#       X:  double m x n matrix   (input signals)<br>
+#               m is the signal size<br>
+#               n is the number of signals to decompose<br>
+#       D: (optional) double m x p matrix   (dictionary)<br>
+#         p is the number of elements in the dictionary<br>
+#         When D is not provided, the dictionary is initialized <br>
+#         with random elements from the training set.<br>
+#       K: (size of the dictionary, optional is D is provided)<br>
+#       lambda1:  (parameter)<br>
+#       iter: (number of iterations).  If a negative number is <br>
+#          provided it will perform the computation during the<br>
+#          corresponding number of seconds. For instance iter=-5<br>
+#          learns the dictionary during 5 seconds.<br>
+#       mode: (optional, see above, by default 2) <br>
+#       modeD: (optional, see above, by default 0)<br>
+#       posD: (optional, adds positivity constraints on the <br>
+#         dictionary, false by default, not compatible with <br>
+#         modeD=2)<br>
+#       gamma1: (optional parameter for modeD &gt;= 1)<br>
+#       gamma2: (optional parameter for modeD = 2)<br>
+#       batchsize: (optional, size of the minibatch, by default <br>
+#         512)<br>
+#       iter_updateD: (optional, number of BCD iterations for the dictionary <br>
+#           update step, by default 1)<br>
+#       modeParam: (optimization mode).<br>
+#         1) if modeParam=0, the optimization uses the <br>
+#            parameter free strategy of the ICML paper<br>
+#         2) if modeParam=1, the optimization uses the <br>
+#            parameters rho as in arXiv:0908.0050<br>
+#         3) if modeParam=2, the optimization uses exponential <br>
+#            decay weights with updates of the form <br>
+#            A_{t} &lt;- rho A_{t-1} + alpha_t alpha_t^T<br>
+#       rho: (optional) tuning parameter (see paper arXiv:0908.0050)<br>
+#       t0: (optional) tuning parameter (see paper arXiv:0908.0050)<br>
+#       clean: (optional, true by default. prunes <br>
+#         automatically the dictionary from unused elements).<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#         multi-core / multi-cpus. By default, it takes the value -1,<br>
+#         which automatically selects all the available CPUs/cores).<br>
+#       expand:    undocumented; modify at your own risks!<br>
+#       whiten:    undocumented; modify at your own risks!<br>
+#       stochastic_deprecated:    undocumented; modify at your own risks!<br>
+#       batch:    undocumented; modify at your own risks!<br>
+#       log_deprecated:    undocumented; modify at your own risks!<br>
+#       logName:    undocumented; modify at your own risks!<br>
+#<br>
+# Output:<br>
+#       D:     double m x p matrix   (dictionary)<br>
+#       model:  the model as A B iter<br>
+#        D = spams.trainDL_Memory(X,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2009 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#<br>
+# Note:<br>
+#     this function admits a few experimental usages, which have not<br>
+#     been extensively tested:<br>
+#         - single precision setting (even though the output alpha is double <br>
+#           precision)<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+img_file = <span class="c003">'lena.png'</span><br>
+<span class="c002">try</span>:<br>
+    img = Image.open(img_file)<br>
+<span class="c002">except</span>:<br>
+    <span class="c002">print</span>(<span class="c003">"Cannot load image %s : skipping test"</span> %img_file)<br>
+I = np.array(img) / 255.<br>
+<span class="c002">if</span> I.ndim == 3:<br>
+    A = np.asfortranarray(I.reshape((I.shape[0],I.shape[1] * I.shape[2])))<br>
+    rgb = True<br>
+<span class="c002">else</span>:<br>
+    A = np.asfortranarray(I)<br>
+    rgb = False<br>
+<br>
+m = 8<br>
+n = 8<br>
+X = spams.im2col_sliding(A,m,n,rgb)<br>
+<br>
+X = X - np.tile(np.mean(X,0),(X.shape[0],1))<br>
+X = np.asfortranarray(X / np.tile(np.sqrt((X * X).sum(axis=0)),(X.shape[0],1)))<br>
+X = np.asfortranarray(X[:,np.arange(0,X.shape[1],10)],dtype = myfloat)<br>
+<br>
+param = { <span class="c003">'K'</span> : 200, <span class="c001"># learns a dictionary with 100 elements</span><br>
+      <span class="c003">'lambda1'</span> : 0.15, <span class="c003">'numThreads'</span> : 4,<br>
+      <span class="c003">'iter'</span> : 100}<br>
+<br>
+<span class="c001">############# FIRST EXPERIMENT  ##################</span><br>
+tic = time.time()<br>
+D = spams.trainDL_Memory(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'Evaluating cost function...'</span>)<br>
+lparam = _extract_lasso_param(param)<br>
+alpha = spams.lasso(X,D = D,**lparam)<br>
+xd = X - D * alpha<br>
+R = np.mean(0.5 * (xd * xd).sum(axis=0) + param[<span class="c003">'lambda1'</span>] * np.abs(alpha).sum(axis=0))<br>
+<span class="c002">print</span>(<span class="c003">"objective function: %f"</span> %R)<br>
+<br>
+<span class="c001">############# SECOND EXPERIMENT  ##################</span><br>
+tic = time.time()<br>
+D = spams.trainDL(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+<span class="c002">print</span>(<span class="c003">'Evaluating cost function...'</span>)<br>
+alpha = spams.lasso(X,D = D,**lparam)<br>
+xd = X - D * alpha<br>
+R = np.mean(0.5 * (xd * xd).sum(axis=0) + param[<span class="c003">'lambda1'</span>] * np.abs(alpha).sum(axis=0))<br>
+<span class="c002">print</span>(<span class="c003">"objective function: %f"</span> %R)</td></tr>
+</table>
+<h3 class="subsection" id="sec7">3.3  Function spams.structTrainDL</h3>
+<p>
+This function allows to use spams.trainDL with structured regularization functions
+for the coefficients α. It internally uses the FISTA algorithm.
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: structTrainDL<br>
+#<br>
+# Usage: spams.structTrainDL(X,return_model= False,model= None,D = None,graph = None,tree = None,<br>
+#                     numThreads = -1,tol = 0.000001,fixed_step = True,ista = False,<br>
+#                     batchsize = -1,K= -1,lambda1= None,lambda2= 10e-10,lambda3 = 0.,<br>
+#                     iter=-1,t0=1e-5,regul = "none",posAlpha=False,posD=False,expand=False,<br>
+#                     modeD=spams_wrap.L2,whiten=False,clean=True,verbose=True,gamma1=0.,<br>
+#                     gamma2=0.,rho=1.0,iter_updateD=None,stochastic_deprecated=False,<br>
+#                     modeParam=0,batch=False,log_deprecated=False,logName='')<br>
+#<br>
+# Description:<br>
+#     structTrainDL is an efficient implementation of the<br>
+#     dictionary learning technique presented in<br>
+#     <br>
+#     "Online Learning for Matrix Factorization and Sparse Coding"<br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     arXiv:0908.0050<br>
+#     <br>
+#     "Online Dictionary Learning for Sparse Coding"      <br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     ICML 2009.<br>
+#     <br>
+#     <br>
+#     It addresses the dictionary learning problems<br>
+#        min_{D in C} (1/n) sum_{i=1}^n 0.5||x_i-Dalpha_i||_2^2 + lambda1 psi(alpha)<br>
+#        where the regularization function psi depends on regul<br>
+#        (see proximalFlat for the description of psi,<br>
+#         and regul below for allowed values of regul)<br>
+#         <br>
+#     C is a convex set verifying<br>
+#        1) if modeD=0<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  ||d_j||_2^2 &lt;= 1 }<br>
+#        2) if modeD=1<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  ||d_j||_2^2 + ... <br>
+#                                                  gamma1||d_j||_1 &lt;= 1 }<br>
+#        3) if modeD=2<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  ||d_j||_2^2 + ... <br>
+#                                  gamma1||d_j||_1 + gamma2 FL(d_j) &lt;= 1 }<br>
+#        4) if modeD=3<br>
+#           C={  D in Real^{m x p}  s.t.  forall j,  (1-gamma1)||d_j||_2^2 + ... <br>
+#                                  gamma1||d_j||_1 &lt;= 1 }<br>
+#                                  <br>
+#     Potentially, n can be very large with this algorithm.<br>
+#<br>
+# Inputs:<br>
+#       X:  double m x n matrix   (input signals)<br>
+#               m is the signal size<br>
+#               n is the number of signals to decompose<br>
+#       return_model:     <br>
+#               if true the function will return the model<br>
+#               as a named list ('A' = A, 'B' = B, 'iter' = n)<br>
+#       model:        None or model (as A,B,iter) to use as initialisation<br>
+#       D: (optional) double m x p matrix   (dictionary)<br>
+#         p is the number of elements in the dictionary<br>
+#         When D is not provided, the dictionary is initialized <br>
+#         with random elements from the training set.<br>
+#       K: (size of the dictionary, optional is D is provided)<br>
+#       lambda1:  (parameter)<br>
+#       lambda2:  (optional, by default 0)<br>
+#       lambda3: (optional, regularization parameter, 0 by default)<br>
+#       iter: (number of iterations).  If a negative number is <br>
+#          provided it will perform the computation during the<br>
+#          corresponding number of seconds. For instance iter=-5<br>
+#          learns the dictionary during 5 seconds.<br>
+#       regul: choice of regularization : one of<br>
+#           'l0' 'l1' 'l2' 'linf' 'none' 'elastic-net' 'fused-lasso'<br>
+#           'graph' 'graph-ridge' 'graph-l2' 'tree-l0' 'tree-l2' 'tree-linf' <br>
+#       tree: struct (see documentation of proximalTree);<br>
+#           needed for regul of graph kind.<br>
+#       graph: struct (see documentation of proximalGraph);<br>
+#           needed for regul of tree kind.<br>
+#       posAlpha: (optional, adds positivity constraints on the<br>
+#           coefficients, false by default.<br>
+#       modeD: (optional, see above, by default 0)<br>
+#       posD: (optional, adds positivity constraints on the <br>
+#         dictionary, false by default, not compatible with <br>
+#         modeD=2)<br>
+#       gamma1: (optional parameter for modeD &gt;= 1)<br>
+#       gamma2: (optional parameter for modeD = 2)<br>
+#       batchsize: (optional, size of the minibatch, by default <br>
+#          512)<br>
+#       iter_updateD: (optional, number of BCD iterations for the dictionary<br>
+#          update step, by default 1)<br>
+#       modeParam: (optimization mode).<br>
+#          1) if modeParam=0, the optimization uses the <br>
+#             parameter free strategy of the ICML paper<br>
+#          2) if modeParam=1, the optimization uses the <br>
+#             parameters rho as in arXiv:0908.0050<br>
+#          3) if modeParam=2, the optimization uses exponential <br>
+#             decay weights with updates of the form <br>
+#             A_{t} &lt;- rho A_{t-1} + alpha_t alpha_t^T<br>
+#       ista: (optional, use ista instead of fista, false by default).<br>
+#       tol: (optional, tolerance for stopping criteration, which is a relative duality gap<br>
+#       fixed_step: (deactive the line search for L in fista and use K instead)<br>
+#       rho: (optional) tuning parameter (see paper arXiv:0908.0050)<br>
+#       t0: (optional) tuning parameter (see paper arXiv:0908.0050)<br>
+#       clean: (optional, true by default. prunes <br>
+#          automatically the dictionary from unused elements).<br>
+#       verbose: (optional, true by default, increase verbosity)<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#          multi-core / multi-cpus. By default, it takes the value -1,<br>
+#          which automatically selects all the available CPUs/cores).<br>
+#       expand:    undocumented; modify at your own risks!<br>
+#       whiten:    undocumented; modify at your own risks!<br>
+#       stochastic_deprecated:    undocumented; modify at your own risks!<br>
+#       batch:    undocumented; modify at your own risks!<br>
+#       log_deprecated:    undocumented; modify at your own risks!<br>
+#       logName:    undocumented; modify at your own risks!<br>
+#<br>
+# Output:<br>
+#       D:     double m x p matrix   (dictionary)<br>
+#       model:  the model as A B iter<br>
+#        D = spams.structTrainDL(X,return_model = False,...)<br>
+#        (D,model) = spams.structTrainDL(X,return_model = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2009 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#<br>
+# Note:<br>
+#     this function admits a few experimental usages, which have not<br>
+#     been extensively tested:<br>
+#         - single precision setting <br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+img_file = <span class="c003">'lena.png'</span><br>
+<span class="c002">try</span>:<br>
+    img = Image.open(img_file)<br>
+<span class="c002">except</span> Exception as e:<br>
+    <span class="c002">print</span>(<span class="c003">"Cannot load image %s (%s) : skipping test"</span> %(img_file,e))<br>
+I = np.array(img) / 255.<br>
+<span class="c002">if</span> I.ndim == 3:<br>
+    A = np.asfortranarray(I.reshape((I.shape[0],I.shape[1] * I.shape[2])),dtype = myfloat)<br>
+    rgb = True<br>
+<span class="c002">else</span>:<br>
+    A = np.asfortranarray(I,dtype = myfloat)<br>
+    rgb = False<br>
+<br>
+m = 8<br>
+n = 8<br>
+X = spams.im2col_sliding(A,m,n,rgb)<br>
+<br>
+X = X - np.tile(np.mean(X,0),(X.shape[0],1))<br>
+X = np.asfortranarray(X / np.tile(np.sqrt((X * X).sum(axis=0)),(X.shape[0],1)),dtype = myfloat)<br>
+param = { <span class="c003">'K'</span> : 64, <span class="c001"># learns a dictionary with 100 elements</span><br>
+          <span class="c003">'lambda1'</span> : 0.05, <span class="c003">'tol'</span> : 1e-3,<br>
+          <span class="c003">'numThreads'</span> : 4, <span class="c003">'batchsize'</span> : 400,<br>
+          <span class="c003">'iter'</span> : 20}<br>
+paramL = {<span class="c003">'lambda1'</span> : 0.05, <span class="c003">'numThreads'</span> : 4}<br>
+<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l1'</span><br>
+<span class="c002">print</span>(<span class="c003">"with Fista Regression %s"</span> %param[<span class="c003">'regul'</span>])<br>
+tic = time.time()<br>
+D = spams.structTrainDL(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+_objective(X,D,param)<br>
+<br>
+<span class="c001">#</span><br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'l2'</span><br>
+<span class="c002">print</span>(<span class="c003">"with Fista Regression %s"</span> %param[<span class="c003">'regul'</span>])<br>
+tic = time.time()<br>
+D = spams.structTrainDL(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+<br>
+_objective(X,D,param)<br>
+<br>
+<span class="c001">#</span><br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'elastic-net'</span><br>
+<span class="c002">print</span>(<span class="c003">"with Fista %s"</span> %param[<span class="c003">'regul'</span>])<br>
+param[<span class="c003">'lambda2'</span>] = 0.1<br>
+tic = time.time()<br>
+D = spams.structTrainDL(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+<br>
+_objective(X,D,param)<br>
+<span class="c001">## if we want a pause :<br>
+##    s = raw_input("graph&gt; ")<br>
+########### GRAPH</span><br>
+param[<span class="c003">'lambda1'</span>] = 0.1<br>
+param[<span class="c003">'tol'</span>] = 1e-5<br>
+param[<span class="c003">'K'</span>] = 10<br>
+eta_g = np.array([1, 1, 1, 1, 1],dtype=myfloat)<br>
+<br>
+groups = ssp.csc_matrix(np.array([[0, 0, 0, 1, 0],<br>
+                   [0, 0, 0, 0, 0],<br>
+                   [0, 0, 0, 0, 0],<br>
+                   [0, 0, 0, 0, 0],<br>
+                   [0, 0, 1, 0, 0]],dtype=np.bool),dtype=np.bool)<br>
+<br>
+groups_var = ssp.csc_matrix(np.array([[1, 0, 0, 0, 0],<br>
+                       [1, 0, 0, 0, 0],<br>
+                       [1, 0, 0, 0, 0],<br>
+                       [1, 1, 0, 0, 0],<br>
+                       [0, 1, 0, 1, 0],<br>
+                       [0, 1, 0, 1, 0],<br>
+                       [0, 1, 0, 0, 1],<br>
+                       [0, 0, 0, 0, 1],<br>
+                       [0, 0, 0, 0, 1],<br>
+                       [0, 0, 1, 0, 0]],dtype=np.bool),dtype=np.bool)<br>
+<br>
+graph = {<span class="c003">'eta_g'</span>: eta_g,<span class="c003">'groups'</span> : groups,<span class="c003">'groups_var'</span> : groups_var}<br>
+param[<span class="c003">'graph'</span>] = graph<br>
+param[<span class="c003">'tree'</span>] = None<br>
+<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'graph'</span><br>
+<span class="c002">print</span>(<span class="c003">"with Fista %s"</span> %param[<span class="c003">'regul'</span>])<br>
+<br>
+tic = time.time()<br>
+D = spams.structTrainDL(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+<br>
+_objective(X,D,param)<br>
+<br>
+param[<span class="c003">'regul'</span>] = <span class="c003">'graph-ridge'</span><br>
+<span class="c002">print</span>(<span class="c003">"with Fista %s"</span> %param[<span class="c003">'regul'</span>])<br>
+tic = time.time()<br>
+D = spams.structTrainDL(X,**param)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+<br>
+_objective(X,D,param)<br>
+<span class="c001">## if we want a pause :<br>
+##    s = raw_input("tree&gt; ")<br>
+##### TREE</span><br>
+tree_data = <span class="c003">"""0 1. [] -&gt; 1 4</span></td></tr>
+</table>
+<h3 class="subsection" id="sec8">3.4  Function nmf</h3>
+<p>
+This function is an example on how to use the function spams.trainDL for the
+problem of non-negative matrix factorization formulated in [<a href="doc_spams010.html#lee2">17</a>]. Note
+that spams.trainDL can be replaced by spams.trainDL_Memory in this function for
+small or medium datasets.</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: nmf<br>
+#<br>
+# Usage: spams.nmf(X,return_lasso= False,model= None,numThreads = -1,batchsize = -1,K= -1,iter=-1,<br>
+#           t0=1e-5,clean=True,rho=1.0,modeParam=0,batch=False)<br>
+#<br>
+# Description:<br>
+#     trainDL is an efficient implementation of the<br>
+#     non-negative matrix factorization technique presented in <br>
+#     <br>
+#     "Online Learning for Matrix Factorization and Sparse Coding"<br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     arXiv:0908.0050<br>
+#     <br>
+#     "Online Dictionary Learning for Sparse Coding"      <br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     ICML 2009.<br>
+#     <br>
+#     Potentially, n can be very large with this algorithm.<br>
+#<br>
+# Inputs:<br>
+#       X:  double m x n matrix   (input signals)<br>
+#               m is the signal size<br>
+#               n is the number of signals to decompose<br>
+#       return_lasso:     <br>
+#                          if true the function will return a tuple of matrices.<br>
+#       K: (number of required factors)<br>
+#       iter: (number of iterations).  If a negative number <br>
+#         is provided it will perform the computation during the<br>
+#         corresponding number of seconds. For instance iter=-5<br>
+#         learns the dictionary during 5 seconds.<br>
+#       batchsize: (optional, size of the minibatch, by default <br>
+#          512)<br>
+#       modeParam: (optimization mode).<br>
+#          1) if modeParam=0, the optimization uses the <br>
+#             parameter free strategy of the ICML paper<br>
+#          2) if modeParam=1, the optimization uses the <br>
+#             parameters rho as in arXiv:0908.0050<br>
+#          3) if modeParam=2, the optimization uses exponential <br>
+#             decay weights with updates of the form  <br>
+#             A_{t} &lt;- rho A_{t-1} + alpha_t alpha_t^T<br>
+#       rho: (optional) tuning parameter (see paper <br>
+#       arXiv:0908.0050)<br>
+#       t0: (optional) tuning parameter (see paper <br>
+#       arXiv:0908.0050)<br>
+#       clean: (optional, true by default. prunes automatically <br>
+#         the dictionary from unused elements).<br>
+#       batch: (optional, false by default, use batch learning <br>
+#         instead of online learning)<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#            multi-core / multi-cpus. By default, it takes the value -1,<br>
+#            which automatically selects all the available CPUs/cores).<br>
+#       model: struct (optional) learned model for "retraining" the data.<br>
+#<br>
+# Output:<br>
+#       U: double m x p matrix   <br>
+#       V: double p x n matrix   (optional)<br>
+#       model: struct (optional) learned model to be used for <br>
+#         "retraining" the data.<br>
+#         U = spams.nmf(X,return_lasso = False,...)<br>
+#     (U,V) = spams.nmf(X,return_lasso = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2009 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.
+The following piece of code contains usage examples:
+</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c002">import</span> spams<br>
+<span class="c002">import</span> numpy as np<br>
+img_file = <span class="c003">'boat.png'</span><br>
+<span class="c002">try</span>:<br>
+    img = Image.open(img_file)<br>
+<span class="c002">except</span>:<br>
+    <span class="c002">print</span>(<span class="c003">"Cannot load image %s : skipping test"</span> %img_file)<br>
+I = np.array(img) / 255.<br>
+<span class="c002">if</span> I.ndim == 3:<br>
+    A = np.asfortranarray(I.reshape((I.shape[0],I.shape[1] * I.shape[2])),dtype = myfloat)<br>
+    rgb = True<br>
+<span class="c002">else</span>:<br>
+    A = np.asfortranarray(I,dtype = myfloat)<br>
+    rgb = False<br>
+<br>
+m = 16<br>
+n = 16<br>
+X = spams.im2col_sliding(A,m,n,rgb)<br>
+X = X[:,::10]<br>
+X = np.asfortranarray(X / np.tile(np.sqrt((X * X).sum(axis=0)),(X.shape[0],1)),dtype = myfloat)<br>
+<span class="c001">########## FIRST EXPERIMENT ###########</span><br>
+tic = time.time()<br>
+(U,V) = spams.nmf(X,return_lasso= True,K = 49,numThreads=4,iter = -5)<br>
+tac = time.time()<br>
+t = tac - tic<br>
+<span class="c002">print</span>(<span class="c003">'time of computation for Dictionary Learning: %f'</span> %t)<br>
+<br>
+<span class="c002">print</span>(<span class="c003">'Evaluating cost function...'</span>)<br>
+Y = X - U * V<br>
+R = np.mean(0.5 * (Y * Y).sum(axis=0))<br>
+<span class="c002">print</span>(<span class="c003">'objective function: %f'</span> %R)<br>
+<br>
+<br>
+<span class="c001"># Archetypal Analysis, run first steps with FISTA and run last steps with activeSet,</span></td></tr>
+</table>
+<h3 class="subsection" id="sec9">3.5  Function nnsc</h3>
+<p>
+This function is an example on how to use the function spams.trainDL for the
+problem of non-negative sparse coding as defined in [<a href="doc_spams010.html#hoyer">14</a>]. Note that
+spams.trainDL can be replaced by spams.trainDL_Memory in this function for small or
+medium datasets.</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: nmf<br>
+#<br>
+# Usage: spams.nnsc(X,return_lasso= False,model= None,lambda1= None,numThreads = -1,batchsize = -1,<br>
+#            K= -1,iter=-1,t0=1e-5,clean=True,rho=1.0,modeParam=0,batch=False)<br>
+#<br>
+# Description:<br>
+#     trainDL is an efficient implementation of the<br>
+#     non-negative sparse coding technique presented in <br>
+#     <br>
+#     "Online Learning for Matrix Factorization and Sparse Coding"<br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     arXiv:0908.0050<br>
+#     <br>
+#     "Online Dictionary Learning for Sparse Coding"      <br>
+#     by Julien Mairal, Francis Bach, Jean Ponce and Guillermo Sapiro<br>
+#     ICML 2009.<br>
+#     <br>
+#     Potentially, n can be very large with this algorithm.<br>
+#<br>
+# Inputs:<br>
+#       X:  double m x n matrix   (input signals)<br>
+#               m is the signal size<br>
+#               n is the number of signals to decompose<br>
+#       return_lasso:     <br>
+#                          if true the function will return a tuple of matrices.<br>
+#       K: (number of required factors)<br>
+#       lambda1: (parameter)<br>
+#       iter: (number of iterations).  If a negative number <br>
+#          is provided it will perform the computation during the<br>
+#          corresponding number of seconds. For instance iter=-5<br>
+#          learns the dictionary during 5 seconds.<br>
+#       batchsize: (optional, size of the minibatch, by default <br>
+#          512)<br>
+#       modeParam: (optimization mode).<br>
+#          1) if modeParam=0, the optimization uses the <br>
+#             parameter free strategy of the ICML paper<br>
+#          2) if modeParam=1, the optimization uses the <br>
+#             parameters rho as in arXiv:0908.0050<br>
+#          3) if modeParam=2, the optimization uses exponential <br>
+#             decay weights with updates of the form <br>
+#             A_{t} &lt;- rho A_{t-1} + alpha_t alpha_t^T<br>
+#       rho: (optional) tuning parameter (see paper<br>
+#       arXiv:0908.0050)<br>
+#       t0: (optional) tuning parameter (see paper <br>
+#       arXiv:0908.0050)<br>
+#       clean: (optional, true by default. prunes automatically <br>
+#          the dictionary from unused elements).<br>
+#       batch: (optional, false by default, use batch learning <br>
+#          instead of online learning)<br>
+#       numThreads: (optional, number of threads for exploiting<br>
+#          multi-core / multi-cpus. By default, it takes the value -1,<br>
+#          which automatically selects all the available CPUs/cores).<br>
+#       model: struct (optional) learned model for "retraining" the data.<br>
+#<br>
+# Output:<br>
+#       U: double m x p matrix   <br>
+#       V: double p x n matrix   (optional)<br>
+#       model: struct (optional) learned model to be used for <br>
+#          "retraining" the data.<br>
+#          U = spams.nnsc(X,return_lasso = False,...)<br>
+#      (U,V) = spams.nnsc(X,return_lasso = True,...)<br>
+#<br>
+# Authors:<br>
+# Julien MAIRAL, 2009 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#</span></td></tr>
+</table>
+<h3 class="subsection" id="sec10">3.6  Function spams.archetypalAnalysis</h3>
+<p>
+The function optimizes the archetypal analysis formulation of [<a href="doc_spams010.html#Cut94">7</a>]. It follows the
+methodology presented in the following paper [<a href="doc_spams010.html#ChenCVPR">37</a>].</p><table class="lstframe c011"><tr><td class="mouselstlisting"><span class="c001">#<br>
+# Name: archetypalAnalysis<br>
+#<br>
+# Usage: spams.archetypalAnalysis(X,p = 10,Z0 = None,returnAB = False,robust=False,epsilon=1e-3,<br>
+#                          computeXtX=False,stepsFISTA=3,stepsAS=50,randominit=False,<br>
+#                          numThreads=-1)<br>
+#<br>
+# Description:<br>
+#     documentation to appear soon<br>
+#<br>
+# Inputs:<br>
+#       X:  double m x n matrix   (input signals)<br>
+#               m is the signal size<br>
+#               n is the number of signals to decompose<br>
+#<br>
+# Output:<br>
+#       Z: double %<br>
+#<br>
+# Authors:<br>
+# Yuansi Chen and Julien MAIRAL, 2014 (spams, matlab interface and documentation)<br>
+# Jean-Paul CHIEZE 2011-2012 (python interface)<br>
+#</span></td></tr>
+</table><p>
+The following piece of code illustrates how to use this function.</p>
+<hr>
+<a href="doc_spams003.html"><img src="previous_motif.gif" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.gif" alt="Up"></a>
+<a href="doc_spams005.html"><img src="next_motif.gif" alt="Next"></a>
+</body>
+</html>

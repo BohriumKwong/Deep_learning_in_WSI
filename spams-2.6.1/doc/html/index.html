@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.23">
+
+<META name="Author" content="Julien Mairal">
+<link rel="stylesheet" href="doc_spams.css">
+<title>SPAMS: a SPArse Modeling Software, v2.6
+</title>
+<link rel="stylesheet" type="text/css" href="doc_spams.css">
+</head>
+<body>
+<!--HEVEA command line is: /usr/bin/hevea -fix -O article.hva macrocss.hva doc_spams.tex -->
+<!--HACHA command line is: /usr/bin/hacha -tocbis doc_spams.html -->
+<table class="title"><tr><td style="padding:1ex"><h1 class="titlemain">SPAMS: a SPArse Modeling Software, v2.6</h1><h3 class="titlerest">Julien Mairal <br>
+ <span class="c004">julien.mairal@m4x.org</span> <br>
+  <br>
+ Python and R interfaces by Jean-Paul Chieze
+ <br>
+ Archetypal Analysis by Yuansi Chen
+ <br>
+ Porting to R-3.x/Python-3.x by Ghislain Durif
+ <br>
+ and the output of numerous collaborations with <br>
+ Rodolphe Jenatton, Francis Bach, Jean Ponce, <br>
+Guillaume Obozinski, Bin Yu, Guillermo Sapiro, <br>
+and Zaid
+Harchaoui. </h3></td></tr>
+</table><ul>
+<li><a href="doc_spams001.html">Contents</a>
+</li><li><a href="doc_spams002.html">Introduction</a>
+</li><li><a href="doc_spams003.html">Installation</a>
+</li><li><a href="doc_spams004.html">Dictionary Learning and Matrix Factorization Toolbox</a>
+<ul>
+<li><a href="doc_spams004.html#sec5">Function spams.trainDL</a>
+</li><li><a href="doc_spams004.html#sec6">Function spams.trainDL_Memory</a>
+</li><li><a href="doc_spams004.html#sec7">Function spams.structTrainDL</a>
+</li><li><a href="doc_spams004.html#sec8">Function nmf</a>
+</li><li><a href="doc_spams004.html#sec9">Function nnsc</a>
+</li><li><a href="doc_spams004.html#sec10">Function spams.archetypalAnalysis</a>
+</li></ul>
+</li><li><a href="doc_spams005.html">Sparse Decomposition Toolbox</a>
+<ul>
+<li><a href="doc_spams005.html#sec12">Function spams.omp</a>
+</li><li><a href="doc_spams005.html#sec13">Function spams.ompMask</a>
+</li><li><a href="doc_spams005.html#sec14">Function mexRidgeRegression</a>
+</li><li><a href="doc_spams005.html#sec15">Function spams.lasso</a>
+</li><li><a href="doc_spams005.html#sec16">Function spams.lassoWeighted</a>
+</li><li><a href="doc_spams005.html#sec17">Function spams.lassoMask</a>
+</li><li><a href="doc_spams005.html#sec18">Function spams.cd</a>
+</li><li><a href="doc_spams005.html#sec19">Function spams.somp</a>
+</li><li><a href="doc_spams005.html#sec20">Function spams.l1L2BCD</a>
+</li><li><a href="doc_spams005.html#sec21">Function spams.sparseProject</a>
+</li><li><a href="doc_spams005.html#sec22">Function spams.decompSimplex</a>
+</li></ul>
+</li><li><a href="doc_spams006.html">Proximal Toolbox</a>
+<ul>
+<li><a href="doc_spams006.html#sec24">Regularization Functions</a>
+</li><li><a href="doc_spams006.html#sec25">Function spams.proximalFlat</a>
+</li><li><a href="doc_spams006.html#sec26">Function spams.proximalTree</a>
+</li><li><a href="doc_spams006.html#sec27">Function spams.proximalGraph</a>
+</li><li><a href="doc_spams006.html#sec28">Function spams.proximalPathCoding</a>
+</li><li><a href="doc_spams006.html#sec29">Function spams.evalPathCoding</a>
+</li><li><a href="doc_spams006.html#sec30">Problems Addressed</a>
+</li><li><a href="doc_spams006.html#sec37">Function spams.fistaFlat</a>
+</li><li><a href="doc_spams006.html#sec38">Function spams.fistaTree</a>
+</li><li><a href="doc_spams006.html#sec39">Function spams.fistaGraph</a>
+</li><li><a href="doc_spams006.html#sec40">Function spams.fistaPathCoding</a>
+</li><li><a href="doc_spams006.html#sec41">Function solverPoisson</a>
+</li><li><a href="doc_spams006.html#sec42">Function mexIncrementalProx</a>
+</li><li><a href="doc_spams006.html#sec43">Function mexStochasticProx</a>
+</li></ul>
+</li><li><a href="doc_spams007.html">A few Functions for manipulating images</a>
+<ul>
+<li><a href="doc_spams007.html#sec45">Function mexExtractPatches</a>
+</li><li><a href="doc_spams007.html#sec46">Function mexCombinePatches</a>
+</li><li><a href="doc_spams007.html#sec47">Function mexConvFistaFlat</a>
+</li></ul>
+</li><li><a href="doc_spams008.html">Miscellaneous Functions</a>
+<ul>
+<li><a href="doc_spams008.html#sec49">Function spams.conjGrad</a>
+</li><li><a href="doc_spams008.html#sec50">Function spams.bayer</a>
+</li><li><a href="doc_spams008.html#sec51">Function spams.calcAAt</a>
+</li><li><a href="doc_spams008.html#sec52">Function spams.calcXAt</a>
+</li><li><a href="doc_spams008.html#sec53">Function spams.calcXY</a>
+</li><li><a href="doc_spams008.html#sec54">Function spams.calcXYt</a>
+</li><li><a href="doc_spams008.html#sec55">Function spams.calcXtY</a>
+</li><li><a href="doc_spams008.html#sec56">Function spams.invSym</a>
+</li><li><a href="doc_spams008.html#sec57">Function spams.normalize</a>
+</li><li><a href="doc_spams008.html#sec58">Function spams.sort</a>
+</li><li><a href="doc_spams008.html#sec59">Function displayPatches</a>
+</li><li><a href="doc_spams008.html#sec60">Function spams.countPathsDAG</a>
+</li><li><a href="doc_spams008.html#sec61">Function spams.removeCyclesGraph</a>
+</li><li><a href="doc_spams008.html#sec62">Function spams.countConnexComponents</a>
+</li><li><a href="doc_spams008.html#sec63">Function spams.graphOfGroupStruct</a>
+</li><li><a href="doc_spams008.html#sec64">Function spams.groupStructOfString</a>
+</li><li><a href="doc_spams008.html#sec65">Function spams.readGroupStruct</a>
+</li><li><a href="doc_spams008.html#sec66">Function spams.treeOfGroupStruct</a>
+</li><li><a href="doc_spams008.html#sec67">Function spams.simpleGroupTree</a>
+</li></ul>
+</li><li><a href="doc_spams009.html">Duality Gaps with Fenchel Duality</a>
+</li><li><a href="doc_spams010.html">References</a>
+</li></ul>
+<!--FOOTER-->
+<hr style="height:2"><blockquote class="quote"><em>This document was translated from L<sup>A</sup>T<sub>E</sub>X by
+</em><a href="http://hevea.inria.fr/index.html"><em>H<span class="c005"><sup>E</sup></span>V<span class="c005"><sup>E</sup></span>A</em></a><em>.</em></blockquote></body>
+</html>

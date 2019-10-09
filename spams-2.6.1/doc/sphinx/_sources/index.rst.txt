@@ -1,0 +1,208 @@
+.. SPAMS documentation created by docmatlab2python
+
+SPAMS's python interface documentation
+======================================
+
+Contents:
+
+
+.. currentmodule:: spams
+
+.. autosummary::
+
+    sort
+    calcAAt
+    calcXAt
+    calcXY
+    calcXYt
+    calcXtY
+    bayer
+    conjGrad
+    invSym
+    normalize
+    sparseProject
+    lasso
+    lassoMask
+    lassoWeighted
+    omp
+    ompMask
+    cd
+    somp
+    l1L2BCD
+    fistaFlat
+    fistaTree
+    fistaGraph
+    proximalFlat
+    proximalTree
+    proximalGraph
+    trainDL
+    structTrainDL
+    trainDL_Memory
+    nmf
+    nnsc
+    archetypalAnalysis
+    decompSimplex
+    simpleGroupTree
+    readGroupStruct
+    groupStructOfString
+    graphOfGroupStruct
+    treeOfGroupStruct
+
+
+sort
+----
+.. autofunction:: sort
+
+calcAAt
+-------
+.. autofunction:: calcAAt
+
+calcXAt
+-------
+.. autofunction:: calcXAt
+
+calcXY
+------
+.. autofunction:: calcXY
+
+calcXYt
+-------
+.. autofunction:: calcXYt
+
+calcXtY
+-------
+.. autofunction:: calcXtY
+
+bayer
+-----
+.. autofunction:: bayer
+
+conjGrad
+--------
+.. autofunction:: conjGrad
+
+invSym
+------
+.. autofunction:: invSym
+
+normalize
+---------
+.. autofunction:: normalize
+
+sparseProject
+-------------
+.. autofunction:: sparseProject
+
+lasso
+-----
+.. autofunction:: lasso
+
+lassoMask
+---------
+.. autofunction:: lassoMask
+
+lassoWeighted
+-------------
+.. autofunction:: lassoWeighted
+
+omp
+---
+.. autofunction:: omp
+
+ompMask
+-------
+.. autofunction:: ompMask
+
+cd
+--
+.. autofunction:: cd
+
+somp
+----
+.. autofunction:: somp
+
+l1L2BCD
+-------
+.. autofunction:: l1L2BCD
+
+fistaFlat
+---------
+.. autofunction:: fistaFlat
+
+fistaTree
+---------
+.. autofunction:: fistaTree
+
+fistaGraph
+----------
+.. autofunction:: fistaGraph
+
+proximalFlat
+------------
+.. autofunction:: proximalFlat
+
+proximalTree
+------------
+.. autofunction:: proximalTree
+
+proximalGraph
+-------------
+.. autofunction:: proximalGraph
+
+trainDL
+-------
+.. autofunction:: trainDL
+
+structTrainDL
+-------------
+.. autofunction:: structTrainDL
+
+trainDL_Memory
+--------------
+.. autofunction:: trainDL_Memory
+
+nmf
+---
+.. autofunction:: nmf
+
+nnsc
+----
+.. autofunction:: nnsc
+
+archetypalAnalysis
+------------------
+.. autofunction:: archetypalAnalysis
+
+decompSimplex
+-------------
+.. autofunction:: decompSimplex
+
+simpleGroupTree
+---------------
+.. autofunction:: simpleGroupTree
+
+readGroupStruct
+---------------
+.. autofunction:: readGroupStruct
+
+groupStructOfString
+-------------------
+.. autofunction:: groupStructOfString
+
+graphOfGroupStruct
+------------------
+.. autofunction:: graphOfGroupStruct
+
+treeOfGroupStruct
+-----------------
+.. autofunction:: treeOfGroupStruct
+
+
+Indices and tables
+==================
+
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+

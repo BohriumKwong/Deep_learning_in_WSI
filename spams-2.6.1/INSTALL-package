@@ -1,0 +1,102 @@
+This directory contains files to build and install the python interfaces
+to the functions of V2.6.1 SPAMS library.
+
+This version is compatible with python2.7 and python3.x and should be used with
+the Anaconda Python distribution.
+
+The interface consists of 4 files : spams.py myscipy_rand.py spams_wrap.py _spams_wrap.so
+Note: myscipy_rand.py supplies a random generator for sparse matrix
+      for some old scipy distributions
+WARNING : the API of spams.OMP and spams.OMPMask has changed since version V2.2
+########################################
+Interface building and installation
+
+Packages required: python-numpy, python-scipy, anaconda or miniconda.
+
+Create a virtual environment and install required packages with conda:
+```bash
+conda create -n spams
+source activate spams
+conda install -c intel mkl # generally not necessary because already included in anaconda
+conda install numpy scipy six
+```
+
+Install from sources:
+```bash
+tar zxf spams-python.anaconda-v2.6.1-2017-12-08.tar.gz
+cd spams-2.6.1
+python setup.py build
+
+inst=<your-python-install-dir>
+python setup.py install --prefix=$inst
+```
+
+Two documentations are installed in $inst/doc
+  - doc_spams.pdf and html/index.html : the detailed user documentation
+  - sphinx/index.html : the documentation of python function extracted by sphinx
+
+################################
+Linux: tested with Anaconda2-5.0.1 and Anaconda3-5.0.1
+
+MacOS:
+    TODO
+
+Windows 32bits:
+	TODO
+
+Windows 64bits :
+	TODO
+
+########################################
+Testing the interface :
+
+* Linux or Mac :
+
+```bash
+PYV=`python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)";` # get python current version
+export PYTHONPATH=$inst/lib/python${PYV}/site-packages
+cd $inst/test
+python test_spams.py -h # to get help
+python test_spams.py  # will run all the tests
+python test_spams.py linalg # test of linalg functions
+python test_spams.py name1 name2 ... # run named tests
+```
+
+* Windows (binary install) :
+  TODO
+
+########################################
+Using the interface :
+setup your PYTHONPATH (c.f. previously)
+
+```python
+import spams
+```
+
+The spams functions accept only numpy dense vectors or "Fortran" matrices and
+scipy sparce matrices of csc type.
+
+Examples:
+
+```python
+import numpy as np
+import spams
+X = np.asfortranarray(np.random.random((64,200)))
+Y = np.asfortranarray(np.random.random((200,20000)))
+Z = spams.CalcXY(X,Y)
+```
+-----
+```python
+import numpy as np
+import scipy
+import scipy.sparse
+import spams
+
+if not ('rand' in scipy.sparse.__dict__):
+    import myscipy as ssp
+else:
+    import scipy.sparse as ssp
+    m=200; n = 200000; d= 0.05
+    A = ssp.rand(m,n,density=d,format='csc',dtype=np.float64)
+    B = spams.CalcAAt(A)
+```
