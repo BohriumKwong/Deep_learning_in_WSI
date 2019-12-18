@@ -85,7 +85,7 @@ io.imsave(save_dir,img)
 
 
 ## 使用深度学习框架加载ImageNet权重进行相关操作时
-如果当前的场景需要加载ImageNet预训练权重，需要注意的时候，必须同步相关的数据预处理方法，详见：
+如果当前的场景需要加载ImageNet预训练权重，如果可以，建议同步相关的数据预处理方法，详见：
 https://github.com/tensorflow/tensorflow/blob/r1.9/tensorflow/python/keras/applications/imagenet_utils.py
 ```python
 def _preprocess_symbolic_input(x, data_format, mode):
@@ -198,3 +198,220 @@ def get_dataloader():
 
 
 需要注意的是上述提及到的ImageNet权重数据预处理的方法和框架无关，只要是加载框架对应的模型的ImageNet预训练权重，都必须进行同样的预处理，只有这样才能真正发挥ImageNet预训练权重的作用。用于预测时同理。
+
+    实际上对于病理图像加载imageNet权重训练时，有没有对应的processing其实差别不大，反而有时候加了processing效果还会差一些。但另一方面，训练时没加这个processing，但预测是加上的话，效果可能会更理想(听上去有些不make sence)，所以还需要以来具体场景来确定是否添加。         		 ——By Kwong 2019.12
+
+
+## 关于resize
+不管训练还是预测，我们很可能会遇上**image_size**/**patch_size**和**model_input_size**/**target_size**不一致的情况。如果是训练，基本上不需要自己手工处理，大部分时可以用框架自带的数据读取方法来指定resize的大小，但往往在预测的时候，可能需要自己在外部对预测数据进行处理才放进模型，所以，这时候问题就会出现。不同风格不同大小的图片，用不同的resize方法resize之后再送到模型预测，其预测结果往往会有显著的差异(尤其是像病理图像那样的小图)。有鉴于此，我在这里列出常用框架默认的resize方法。
+
+### PIL
+#### PIL.Image
+有些框架会直接引用PIL库的方法，所以在这里给出PIL中resize方法的定义:
+```python
+    def resize(self, size, resample=NEAREST, box=None):
+        """
+        Returns a resized copy of this image.
+
+        :param size: The requested size in pixels, as a 2-tuple:
+           (width, height).
+        :param resample: An optional resampling filter.  This can be
+           one of :py:attr:`PIL.Image.NEAREST`, :py:attr:`PIL.Image.BOX`,
+           :py:attr:`PIL.Image.BILINEAR`, :py:attr:`PIL.Image.HAMMING`,
+           :py:attr:`PIL.Image.BICUBIC` or :py:attr:`PIL.Image.LANCZOS`.
+           If omitted, or if the image has mode "1" or "P", it is
+           set :py:attr:`PIL.Image.NEAREST`.
+           See: :ref:`concept-filters`.
+        :param box: An optional 4-tuple of floats giving the region
+           of the source image which should be scaled.
+           The values should be within (0, 0, width, height) rectangle.
+           If omitted or None, the entire source is used.
+        :returns: An :py:class:`~PIL.Image.Image` object.
+        """
+
+        if resample not in (
+                NEAREST, BILINEAR, BICUBIC, LANCZOS, BOX, HAMMING,
+        ):
+            raise ValueError("unknown resampling filter")
+
+        size = tuple(size)
+
+        if box is None:
+            box = (0, 0) + self.size
+        else:
+            box = tuple(box)
+
+        if self.size == size and box == (0, 0) + self.size:
+            return self.copy()
+
+        if self.mode in ("1", "P"):
+            resample = NEAREST
+
+        if self.mode in ['LA', 'RGBA']:
+            im = self.convert(self.mode[:-1]+'a')
+            im = im.resize(size, resample, box)
+            return im.convert(self.mode)
+
+        self.load()
+
+        return self._new(self.im.resize(size, resample, box))
+```
+
+### tensorflow
+#### tensorflow.contrib.image.python.ops.image_ops
+这里以tensorflow==1.7.0为例，在上述脚本中定义的transform方法如下:
+```python
+def transform(images, transforms, interpolation="NEAREST", name=None):
+  """Applies the given transform(s) to the image(s).
+
+  Args:
+    images: A tensor of shape (num_images, num_rows, num_columns, num_channels)
+       (NHWC), (num_rows, num_columns, num_channels) (HWC), or
+       (num_rows, num_columns) (HW). The rank must be statically known (the
+       shape is not `TensorShape(None)`.
+    transforms: Projective transform matrix/matrices. A vector of length 8 or
+       tensor of size N x 8. If one row of transforms is
+       [a0, a1, a2, b0, b1, b2, c0, c1], then it maps the *output* point
+       `(x, y)` to a transformed *input* point
+       `(x', y') = ((a0 x + a1 y + a2) / k, (b0 x + b1 y + b2) / k)`,
+       where `k = c0 x + c1 y + 1`. The transforms are *inverted* compared to
+       the transform mapping input points to output points. Note that gradients
+       are not backpropagated into transformation parameters.
+    interpolation: Interpolation mode. Supported values: "NEAREST", "BILINEAR".
+
+  Returns:
+    Image(s) with the same type and shape as `images`, with the given
+    transform(s) applied. Transformed coordinates outside of the input image
+    will be filled with zeros.
+
+  Raises:
+    TypeError: If `image` is an invalid type.
+  """
+  with ops.name_scope(name, "transform"):
+    image_or_images = ops.convert_to_tensor(images, name="images")
+    transform_or_transforms = ops.convert_to_tensor(
+        transforms, name="transforms", dtype=dtypes.float32)
+    if image_or_images.dtype.base_dtype not in _IMAGE_DTYPES:
+      raise TypeError("Invalid dtype %s." % image_or_images.dtype)
+    elif image_or_images.get_shape().ndims is None:
+      raise TypeError("image_or_images rank must be statically known")
+    elif len(image_or_images.get_shape()) == 2:
+      images = image_or_images[None, :, :, None]
+    elif len(image_or_images.get_shape()) == 3:
+      images = image_or_images[None, :, :, :]
+    elif len(image_or_images.get_shape()) == 4:
+      images = image_or_images
+    else:
+      raise TypeError("Images should have rank between 2 and 4.")
+
+    if len(transform_or_transforms.get_shape()) == 1:
+      transforms = transform_or_transforms[None]
+    elif transform_or_transforms.get_shape().ndims is None:
+      raise TypeError(
+          "transform_or_transforms rank must be statically known")
+    elif len(transform_or_transforms.get_shape()) == 2:
+      transforms = transform_or_transforms
+    else:
+      raise TypeError("Transforms should have rank 1 or 2.")
+    output = gen_image_ops.image_projective_transform(
+        images, transforms, interpolation=interpolation.upper())
+    if len(image_or_images.get_shape()) == 2:
+      return output[0, :, :, 0]
+    elif len(image_or_images.get_shape()) == 3:
+      return output[0, :, :, :]
+    else:
+      return output
+```
+其中指定了interpolation: Interpolation mode. Supported values: "NEAREST", "BILINEAR"，而在方法中interpolation默认是"NEAREST"。
+
+### Keras 
+#### keras_processing.image
+这里以keras==2.2.4为例，在上述image脚本中，定义的load_img方法如下:
+```python
+def load_img(path, grayscale=False, target_size=None,
+             interpolation='nearest'):
+    """Loads an image into PIL format.
+
+    # Arguments
+        path: Path to image file.
+        grayscale: Boolean, whether to load the image as grayscale.
+        target_size: Either `None` (default to original size)
+            or tuple of ints `(img_height, img_width)`.
+        interpolation: Interpolation method used to resample the image if the
+            target size is different from that of the loaded image.
+            Supported methods are "nearest", "bilinear", and "bicubic".
+            If PIL version 1.1.3 or newer is installed, "lanczos" is also
+            supported. If PIL version 3.4.0 or newer is installed, "box" and
+            "hamming" are also supported. By default, "nearest" is used.
+
+    # Returns
+        A PIL Image instance.
+
+    # Raises
+        ImportError: if PIL is not available.
+        ValueError: if interpolation method is not supported.
+    """
+    if pil_image is None:
+        raise ImportError('Could not import PIL.Image. '
+                          'The use of `array_to_img` requires PIL.')
+    img = pil_image.open(path)
+    if grayscale:
+        if img.mode != 'L':
+            img = img.convert('L')
+    else:
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+    if target_size is not None:
+        width_height_tuple = (target_size[1], target_size[0])
+        if img.size != width_height_tuple:
+            if interpolation not in _PIL_INTERPOLATION_METHODS:
+                raise ValueError(
+                    'Invalid interpolation method {} specified. Supported '
+                    'methods are {}'.format(
+                        interpolation,
+                        ", ".join(_PIL_INTERPOLATION_METHODS.keys())))
+            resample = _PIL_INTERPOLATION_METHODS[interpolation]
+            img = img.resize(width_height_tuple, resample)
+    return img
+```
+
+可以看到，它本质上用的是PIL库的resize方法。
+
+### pytorch 
+#### torchvision.transforms.transforms
+这里以torchvision==0.3.0为例，在transforms中Resize类的定义如下:
+```python
+class Resize(object):
+    """Resize the input PIL Image to the given size.
+
+    Args:
+        size (sequence or int): Desired output size. If size is a sequence like
+            (h, w), output size will be matched to this. If size is an int,
+            smaller edge of the image will be matched to this number.
+            i.e, if height > width, then image will be rescaled to
+            (size * height / width, size)
+        interpolation (int, optional): Desired interpolation. Default is
+            ``PIL.Image.BILINEAR``
+    """
+
+    def __init__(self, size, interpolation=Image.BILINEAR):
+        assert isinstance(size, int) or (isinstance(size, Iterable) and len(size) == 2)
+        self.size = size
+        self.interpolation = interpolation
+
+    def __call__(self, img):
+        """
+        Args:
+            img (PIL Image): Image to be scaled.
+
+        Returns:
+            PIL Image: Rescaled image.
+        """
+        return F.resize(img, self.size, self.interpolation)
+
+    def __repr__(self):
+        interpolate_str = _pil_interpolation_to_str[self.interpolation]
+        return self.__class__.__name__ + '(size={0}, interpolation={1})'.format(self.size, interpolate_str)
+```
+在该方法中，默认的interpolation是**PIL.Image.BILINEAR**。
+由此可知，每个框架用的都是PIL库，但使用的resize方法的参数不尽相同。所以在预测的时候，要特别注意。
