@@ -81,7 +81,7 @@ print(slide_thumbnail.size)
 
 
 tiles = slide.read_region((16000,30000),0, (1024,512))
-# read_region方法有三组参数，第一组参数是你要提取切片的起始坐标(该坐标是对应曾经下的坐标)，第二组参数是你要提取的图像层级
+# read_region方法有三组参数，第一组参数是你要提取切片的起始坐标(不管你提取什么层级,这里填的坐标是0级下的坐标)，第二组参数是你要提取的图像层级
 #  第三组参数是切片的尺寸，同样是(宽，高)的形式
 plt.imshow(tiles)
 print(tiles.size)
