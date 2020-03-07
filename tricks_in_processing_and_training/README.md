@@ -13,7 +13,7 @@
 
 
 ## 大图对象操作
-一般来说python可支持操作的图像类型的对象大小有上限的，这也是为什么自带的图像处理工具库**PIL**无法读取无法读取WSI(Whole Slide Image)格式的图片的原因，但如果仍坚持直接用**PIL**处理这些大图像对象(通常我们不建议这样做),可通过以下语句进行修改，突破默认的限制：
+一般来说python可支持操作的图像类型的对象大小有上限的，这也是为什么自带的图像处理工具库`PIL`无法读取无法读取**WSI**(Whole Slide Image)格式的图片的原因，但如果仍坚持直接用`PIL`处理这些大图像对象(通常我们不建议这样做),可通过以下语句进行修改，突破默认的限制：
 
 ```python
 from PIL import Image
@@ -21,7 +21,7 @@ Image.MAX_IMAGE_PIXELS=500000000 #这里可以设一个很大的数值
 ```
 
 ## 在IPython中画出大图
-针对Spyder或者Jupyter Notebook这些集成IPython窗口的编译环境，如果希望用matplotlib能对一些大图(几千像素×几千像素级别)以比较友好的方式画出来时，需要手工指定画布大小，否则会按默认大小来显示，以下是原效果：
+针对Spyder或者Jupyter Notebook这些集成IPython窗口的编译环境，如果希望用`matplotlib`能对一些大图(几千像素×几千像素级别)以比较友好的方式画出来时，需要手工指定画布大小，否则会按默认大小来显示，以下是原效果：
 ![](small_plot.png)
 可通过以下语句重新指定画布大小：
 
@@ -53,7 +53,7 @@ import skimage.io as io
 img = io.imread('16558.png')
 ```
 ### 保存图片
-即使你的图片是RGB通道顺序的，但如果有使用`opencv`对图像进行修改(resize这些形态操作除外)，如画框，修改等，就必须要要以`opencv`进行图片的保存，但需要注意的是，只要是使用`opencv`进行图片保存，都必须在处理前将图片转为BGR通道顺序，否则保存下来的图片并非是RGB下真实的颜色:
+即使你的图片是RGB通道顺序的，但如果有使用`opencv`对图像进行修改(resize这些形态操作除外)，如画框、添加文字、以及相关变换等，就必须要要以`opencv`进行图片的保存，但需要注意的是，只要是使用`opencv`进行图片保存，都必须在处理前将图片转为BGR通道顺序，否则保存下来的图片并非是RGB下真实的颜色:
 ```python
 import cv2
 import skimage.io as io
@@ -63,7 +63,7 @@ cv2.imwrite(save_dir,cv2.cvtColor(img_new, cv2.COLOR_RGB2BGR))
 io.imsave(save_dir,img)
 ```
 ### 使用深度学习框架进行预测
-由于tensorflow/pytorch读取图像都是默认为RGB通道顺序的，在进行预测的时候，必须要要确定图片不是BGR顺序的，否则预测的结果会相差很远。
+由于tensorflow/pytorch读取图像都是默认为RGB通道顺序的，在进行预测的时候，必须要确定图片不是BGR顺序的，否则预测的结果会相差很远。
 
 
 ## openslide的trick说明
@@ -175,7 +175,7 @@ train_generator = train_datagen.flow_from_directory(
 
 ```
 
-以pytorch为例，训练时可以在使用数据生成器的时候，增加torchvision.transforms的Normalize方法的调用，如:
+以pytorch为例，训练时可以在使用dataloader时，增加torchvision.transforms的Normalize方法的调用，如:
 ```python
 from torchvision import datasets, transforms
 
@@ -199,15 +199,15 @@ def get_dataloader():
 
 需要注意的是上述提及到的ImageNet权重数据预处理的方法和框架无关，只要是加载框架对应的模型的ImageNet预训练权重，都必须进行同样的预处理，只有这样才能真正发挥ImageNet预训练权重的作用。用于预测时同理。
 
-    然而对于病理图像处理的场景,在加载imageNet权重进行训练时，有没有对应的processing其实差别不大，反而有时候加了processing效果还会差一些。但另一方面，训练时没加这个processing，但预测是加上的话，效果可能会更理想(听上去有些不make sence)，所以还需要以来具体场景来确定是否添加。         		 ——By Kwong 2019.12
+    然而对于病理图像处理的场景,在加载ImageNet权重进行训练时，有没有对应的processing其实差别不大，反而有时候加了processing效果还会差一些。但另一方面，训练时没加这个processing，但预测是加上的话，效果可能会更理想(听上去有些不make sence)，所以还需要以来具体场景来确定是否添加。         		 ——By Kwong 2019.12
 
 
 ## 关于resize
-不管训练还是预测，我们很可能会遇上**image_size**/**patch_size**和**model_input_size**/**target_size**不一致的情况。如果是训练，基本上不需要自己手工处理，大部分时可以用框架自带的数据读取方法来指定resize的大小，但往往在预测的时候，可能需要自己在外部对预测数据进行处理才放进模型，所以，这时候问题就会出现。不同风格不同大小的图片，用不同的resize方法resize之后再送到模型预测，其预测结果往往会有显著的差异(尤其是像病理图像那样的小图)。有鉴于此，我在这里列出常用框架默认的resize方法。
+不管训练还是预测，我们很可能会遇上**image_size**/**patch_size**和**model_input_size**/**target_size**不一致的情况。如果是训练，基本上不需要自己手工处理，大部分时可以用框架自带的数据读取方法来指定**resize**的大小，但往往在预测的时候，可能需要自己在外部对预测数据进行处理才放进模型，所以，这时候问题就会出现。不同风格不同大小的图片，用不同的**resize**方法**resize**之后再送到模型预测，其预测结果往往会有显著的差异(尤其是像病理图像那样的小图)。有鉴于此，我在这里列出常用框架默认的**resize**方法。
 
 ### PIL
 #### PIL.Image
-由于主流的深度学习框架都是直接引用PIL库进行图像加载，所以在这里给出PIL中resize方法的定义:
+由于主流的深度学习框架都是直接引用`PIL`库进行图像加载，所以在这里给出`PIL`中**resize**方法的定义:
 ```python
     def resize(self, size, resample=NEAREST, box=None):
         """
@@ -259,7 +259,7 @@ def get_dataloader():
 
 ### tensorflow
 #### tensorflow.contrib.image.python.ops.image_ops
-这里以tensorflow==1.7.0为例，在上述脚本中定义的transform方法如下:
+这里以tensorflow==1.7.0为例，在上述脚本中定义的`transform`方法如下:
 ```python
 def transform(images, transforms, interpolation="NEAREST", name=None):
   """Applies the given transform(s) to the image(s).
@@ -322,11 +322,11 @@ def transform(images, transforms, interpolation="NEAREST", name=None):
     else:
       return output
 ```
-其中指定了interpolation: Interpolation mode. Supported values: "NEAREST", "BILINEAR"，而在方法中interpolation默认是"NEAREST"。
+其中指定了**interpolation: Interpolation mode. Supported values: "NEAREST", "BILINEAR"**，而在方法中interpolation默认是"NEAREST"。
 
 ### Keras 
 #### keras_processing.image
-这里以keras==2.2.4为例，在上述image脚本中，定义的load_img方法如下:
+这里以keras==2.2.4为例，在上述`image`脚本中，定义的`load_img`方法如下:
 ```python
 def load_img(path, grayscale=False, target_size=None,
              interpolation='nearest'):
@@ -375,11 +375,11 @@ def load_img(path, grayscale=False, target_size=None,
     return img
 ```
 
-可以看到，它本质上用的是PIL库的resize方法。
+可以看到，它本质上用的是`PIL`库的`resize`方法。
 
 ### pytorch 
 #### torchvision.transforms.transforms
-这里以torchvision==0.3.0为例，在transforms中Resize类的定义如下:
+这里以torchvision==0.3.0为例，在`transforms`中`Resize`类的定义如下:
 ```python
 class Resize(object):
     """Resize the input PIL Image to the given size.
@@ -413,5 +413,5 @@ class Resize(object):
         interpolate_str = _pil_interpolation_to_str[self.interpolation]
         return self.__class__.__name__ + '(size={0}, interpolation={1})'.format(self.size, interpolate_str)
 ```
-在该方法中，默认的interpolation是**PIL.Image.BILINEAR**。
-综上所述,虽然主流框架用的都是PIL库，但使用的resize方法的参数不尽相同。所以在预测的时候，要特别注意。
+在该方法中，默认的**interpolation**是`PIL.Image.BILINEAR`。
+综上所述,虽然主流框架用的都是`PIL`库，但使用的**resize**方法的参数不尽相同。所以在预测的时候，要特别注意。
