@@ -46,6 +46,14 @@ class Slide(openslide.OpenSlide):
 
         return self._level
 
+    def get_level_count(self):
+        """
+        return number of levels
+        :return:
+        """
+
+        return len(self.slide.level_downsamples)
+
     def get_level_downsample(self, level=2):
         """
         get the expected level downsample, default level two
@@ -75,14 +83,12 @@ class Slide(openslide.OpenSlide):
 
         return tile
 
-    def svs_to_png(self):
+    def svs_to_png(self,save_dir):
         """
         convert svs to png
         :return:
         """
-
-        tile, svs_png = self.get_thumb()
-        tile.save(svs_png)
+        self.get_thumb().save(save_dir)
 
     def expand_img(self, im, size, value=(0, 0, 0)):
         """
