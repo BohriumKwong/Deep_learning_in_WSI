@@ -13,7 +13,7 @@
 
 
 ## 大图对象操作
-一般来说python可支持操作的图像类型的对象大小有上限的，这也是为什么自带的图像处理工具库**PIL**无法读取无法读取WSI(Whole Slide Image)格式的图片的原因，但如果仍坚持直接用**PIL**处理这些大图像对象(通常我们不建议这样做),可通过一下语句进行修改，突破默认的限制：
+一般来说python可支持操作的图像类型的对象大小有上限的，这也是为什么自带的图像处理工具库**PIL**无法读取无法读取WSI(Whole Slide Image)格式的图片的原因，但如果仍坚持直接用**PIL**处理这些大图像对象(通常我们不建议这样做),可通过以下语句进行修改，突破默认的限制：
 
 ```python
 from PIL import Image
@@ -33,9 +33,9 @@ plt.rcParams['figure.figsize'] = 15, 15
 ![](big_plot.png)
 
 ## opencv-python 默认通道顺序
-如果在模型训练前后的预处理过程中需要用到opencv来处理图像，必须要谨记的一点时，opencv默认读写图像的通道顺序并非是RGB而是**BGR**！！！！
+如果在模型训练前后的预处理过程中需要用到`opencv`来处理图像，必须要谨记的一点是，`opencv`默认读写图像的通道顺序并非是RGB而是**BGR**！！！！
 ### 读取图片
-一般情况下，为了避免后续操作混乱，如果是用于模型训练/预测读取图片，尽量避免使用opencv进行图片读取，因为其他框架/包处理图片时默认都是RGB顺序，如：
+一般情况下，为了避免后续操作混乱，如果是用于模型训练/预测读取图片，尽量避免使用`opencv`进行图片读取，因为所有深度学习框架读取图片时默认都是RGB顺序(使用python内置的`PIL`读取)，关于RGB和BGR的差异，可以参看以下对比：
 ```python
 import cv2
 cv_test_read = cv2.imread('16558.png')
@@ -43,17 +43,17 @@ plt.imshow(cv_test_read)
 ```
 显示的效果如下（注意和上图进行对比）：
 ![](bgr_16588.png)
-为此，需要在使用opencv读取图片后，马上进行转换处理：
+为此，需要在使用`opencv`读取图片后，马上进行转换处理：
 ```python
 import cv2
 img = cv2.imread('16558.png')
 img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
-#####如果确定更不需要使用opencv对图片进行处理，建议直接用skimage
+#####如果确定更不需要使用opencv对图片进行处理，建议直接用skimage或者PIL库读取图像
 import skimage.io as io
 img = io.imread('16558.png')
 ```
 ### 保存图片
-即使你的图片是RGB通道顺序的，但如果有使用opencv对图像进行修改(resize这些形态操作除外)，如画框，修改等，就必须要要以opencv进行图片的保存，但需要注意的是，只要是使用opencv进行图片保存，都必须在处理前将图片转为BGR通道顺序，否则保存下来的图片并非是RGB下真实的颜色:
+即使你的图片是RGB通道顺序的，但如果有使用`opencv`对图像进行修改(resize这些形态操作除外)，如画框，修改等，就必须要要以`opencv`进行图片的保存，但需要注意的是，只要是使用`opencv`进行图片保存，都必须在处理前将图片转为BGR通道顺序，否则保存下来的图片并非是RGB下真实的颜色:
 ```python
 import cv2
 import skimage.io as io
@@ -69,15 +69,15 @@ io.imsave(save_dir,img)
 ## openslide的trick说明
 
 ### 兼容格式
-实际上openslide很多使用习惯和python自带的**PIL**相同，首先不管是``slide.get_thumbnail(level)``方法还是``slide.read_region((w_coordinate, h_coordinate), level, (patch_w, patch_h))``方法，返回的对象都是Image对象而非numpy array对象。因此为便于对返回的Image对象进行后续处理，一般都会将其转换为数组。由于Image对象，所以默认的通道顺序自然也是RGB，只需要直接使用``np.array()``方法则可:
+实际上`openslide`很多使用习惯和python自带的`PIL`相同，首先不管是``slide.get_thumbnail(level)``方法还是``slide.read_region((w_coordinate, h_coordinate), level, (patch_w, patch_h))``方法，返回的对象都是Image对象而非numpy array对象。因此为便于对返回的Image对象进行后续处理，一般都会将其转换为数组。由于Image对象，所以默认的通道顺序自然也是RGB，只需要直接使用``np.array()``方法则可:
 ``region_img_arr =  np.array(slide.read_region((w_coordinate, h_coordinate), level, (patch_w, patch_h)))``
-但需要注意的是，直接转换为数组时候，其通道数的深度并非为3而是4，因为获取的数组，实际上是包含了alpha通道(透明度)，即转换后的数组，第三维度依次是**[R,G,B,A]**。一般情况下这个WSI图像不存在透明度处理的问题，因此可以将这个通道直接丢弃，只取前三个通道，保证进行np.array转换后能兼容常规的图像处理工具格式则可，如：
+但需要注意的是，直接转换为数组时候，其通道数的深度并非为3而是4，因为获取的数组，实际上是包含了alpha通道(透明度)，即转换后的数组，第三维度依次是**[R,G,B,A]**。一般情况下这个WSI图像不存在透明度处理的问题，因此可以直接丢弃alpha通道，只取前三个通道，保证进行np.array转换后能兼容常规的图像处理工具格式则可，如：
 ``region_img_arr =  np.array(slide.read_region((w_coordinate, h_coordinate), level, (patch_w, patch_h)))[:,:,:3]``
 
 
 ### 坐标顺序
 之后是坐标顺序，
-实际上openslide很多使用习惯和python自带的**PIL**相同，首先不管是``slide.get_thumbnail(level)``方法还是``slide.read_region((w_coordinate, h_coordinate), level, (patch_w, patch_h))``方法又或者是``slide.level_dimensions[level]``，牵涉到坐标的设置，都是**(图像的宽，图像的高)**，和array中矩阵的顺序(图像的高，图像的宽)刚好相反，如：
+实际上`openslide`很多使用习惯和python自带的`PIL`相同，首先不管是``slide.get_thumbnail(level)``方法还是``slide.read_region((w_coordinate, h_coordinate), level, (patch_w, patch_h))``方法又或者是``slide.level_dimensions[level]``，牵涉到坐标的设置，都是**(图像的宽，图像的高)**，和array中矩阵的顺序(图像的高，图像的宽)刚好相反，如：
 ![](coor.png)
 因此，上述所有参数都是先width, 之后才是height，而基于numpy array的skimage、cv2甚至是scipy这些包，处理图像(矩阵)时，都是先height, 之后才是width，如
 ``img[height,width]``
@@ -199,7 +199,7 @@ def get_dataloader():
 
 需要注意的是上述提及到的ImageNet权重数据预处理的方法和框架无关，只要是加载框架对应的模型的ImageNet预训练权重，都必须进行同样的预处理，只有这样才能真正发挥ImageNet预训练权重的作用。用于预测时同理。
 
-    实际上对于病理图像加载imageNet权重训练时，有没有对应的processing其实差别不大，反而有时候加了processing效果还会差一些。但另一方面，训练时没加这个processing，但预测是加上的话，效果可能会更理想(听上去有些不make sence)，所以还需要以来具体场景来确定是否添加。         		 ——By Kwong 2019.12
+    然而对于病理图像处理的场景,在加载imageNet权重进行训练时，有没有对应的processing其实差别不大，反而有时候加了processing效果还会差一些。但另一方面，训练时没加这个processing，但预测是加上的话，效果可能会更理想(听上去有些不make sence)，所以还需要以来具体场景来确定是否添加。         		 ——By Kwong 2019.12
 
 
 ## 关于resize
@@ -207,7 +207,7 @@ def get_dataloader():
 
 ### PIL
 #### PIL.Image
-有些框架会直接引用PIL库的方法，所以在这里给出PIL中resize方法的定义:
+由于主流的深度学习框架都是直接引用PIL库进行图像加载，所以在这里给出PIL中resize方法的定义:
 ```python
     def resize(self, size, resample=NEAREST, box=None):
         """
@@ -414,4 +414,4 @@ class Resize(object):
         return self.__class__.__name__ + '(size={0}, interpolation={1})'.format(self.size, interpolate_str)
 ```
 在该方法中，默认的interpolation是**PIL.Image.BILINEAR**。
-由此可知，每个框架用的都是PIL库，但使用的resize方法的参数不尽相同。所以在预测的时候，要特别注意。
+综上所述,虽然主流框架用的都是PIL库，但使用的resize方法的参数不尽相同。所以在预测的时候，要特别注意。
