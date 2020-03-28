@@ -39,7 +39,8 @@
 
 ### ./normalization/
 里面存放颜色标准化工具**StainTools**的核心方法，关于**StainTools**的使用说明，详见https://github.com/Peter554/StainTools
-在这里要补充一个说明，V方法虽然比M方法更先进，但是使用V方法遇上低对比度的图像时很容易会让系统产生``core dump！``的浮点计数报错，该报错原因处在操作系统的c++相关库上，无法被python自带的异常捕捉机制处理。使用M方法遇上低对比度的图片时也会转换失败，但可以使用python的异常捕捉机制捕捉这个异常。
+在这里要补充一个说明，V方法虽然比M方法更先进，但是使用V方法遇上低对比度的图像时很容易会让系统产生``core dump！``的浮点计数报错，该报错原因处在操作系统的c++相关库上，无法被python自带的异常捕捉机制处理。为了尽可能避免这种意外的中断,可以进行条件判断才进行颜色转换操作,见下面**stain_trans.py**使用范例中的的`slide_region[np.std(slide_region,axis=2)<3]`。经过我多次对比,基于对比度作为判断全黑/全灰比直接指定RGB通道像素值范围更合适。使用M方法遇上低对比度的图片时也会转换失败，但可以使用python的异常捕捉机制捕捉这个异常。
+
 
 ### ./spams-2.6.1/
 使用上述的颜色标准化工具必须要安装2.6.1的**spams**，但是直接从公开镜像使用``pip install ``安装很可能会出现失败，此时可以直接运行里面的setup.py文件进行安装(``python setup.py install``)。
@@ -55,21 +56,26 @@
 将我常用到的openslide_utils方法封装成一个类。
 
 #### stain_trans.py
-将颜色标准化的方法进行封装。使用方法如下:
+将颜色标准化的方法进行封装,使用方法如下,注意要加上异常捕捉模块。:
 ```python
-from skimage import io
 from utils.stain_trans import standard_transfrom
 from utils.openslide_utils import Slide
 
-slide = Slide(svs_file)
 normalize_target_img = io.imread('TUM-AGQGDHKE.tif')
-normalize_method = standard_transfrom(normalize_target_img,'M')
-slide_region = np.array(slide.read_region((x , yy) , 0 , (patch_size ,patch_size)))[:,:,:3]
-slide_region = normalize_method.transform(slide_region.copy())
+normalize_method = standard_transfrom(normalize_target_img,'V')
+slide = Slide(svs_file)
+slide_region = slide.read_region((w_cor,h_cor),0,(patch_size,patch_size)).convert('RGB')
+slide_region = np.array(img)
+if np.sum(slide_region[np.std(slide_region,axis=2)<3]) < slide_region.shape[0] * slide_region.shape[1] *0.4:
+    try:
+        slide_region = normalize_method.transform(slide_region)
+    except Exception:
+        print(basename + ' read_region failed in ' + str((w_cor,h_cor)))
+
 ```
 
 #### tissue_utils
-对亮度正常的病理WSI图像，进行背景/组织提取的方法(默认在2级下采样进行，提取出来的矩阵，0代表背景，1代表组织)。
+对亮度正常的病理WSI图像，进行背景/组织提取的方法(默认在2级下采样进行，提取出来的矩阵，0代表背景，1代表组织)。该方法会基于轮廓面积来过滤离散的组织区域。
 
 #### xml_utils.py
 根据xml格式的标注文件，提取标注轮廓的方法，不过本方法仅对示例标注文件(**16559_.xml**)的结构格式有效。使用方法如下:
