@@ -1,4 +1,4 @@
-# @Time    : 2019.09.05
+# @Time    : 2019.10.18
 # @Author  : Bohrium.Kwong
 # @Licence : bio-totem
 
@@ -6,16 +6,16 @@
 import os
 import shutil
 import lxml.etree as ET
-import cv2
+
 from PIL import ImageDraw, Image
 import numpy as np
-
+import copy
+import cv2
 
 current_path = os.path.dirname(__file__)
 
 def dist(a, b):
     return round(abs(a[0]-b[0]) + abs(a[1]-b[1]))
-
 
 def xml_to_region(xml_file):
     """
@@ -28,8 +28,9 @@ def xml_to_region(xml_file):
     region_list = []
     region_class = []
     for color in tree.findall('.//Annotation'):
-        if color.attrib['LineColor']=='65280':
-            for region in tree.findall('.//Annotation/Regions/Region'):
+        if color.attrib['LineColor'] in ['65280','255']:
+            # '65280'是绿色,'255'是红色,可以根据自己的实际情况更改这个判断条件(或者直接if True)
+            for region in color.findall('./Regions/Region'):
                 vertex_list = []
                 #region.attrib.get('Type')=='0':
                 region_class.append(region.attrib.get('Type'))
@@ -111,19 +112,35 @@ def region_binary_image(tile, region_list,region_class, level_downsample):
     pin_jie_flag = [] #存储已经被拼接过的标注坐标列表序号                  
     single_list = [] #存储新标注坐标列表的列表          
     for j,p_list in enumerate(regions_list):
-        if dist(p_list[0], p_list[-1]) < 150 and j not in pin_jie_flag:
+        if dist(p_list[0], p_list[-1]) < 50 and j not in pin_jie_flag:
         #如果收尾坐标距离相差在150范围内(曼哈顿距离)，且未成被拼接过，直接认为这个组坐标无须拼接，存储起来
             single_list.append(p_list)                
-        elif dist(p_list[0], p_list[-1]) > 150 and j not in pin_jie_flag:
+        elif dist(p_list[0], p_list[-1]) > 50 and j not in pin_jie_flag:
         #如果收尾坐标距离相差在150范围外(曼哈顿距离)，且未成被拼接过，说明这组坐标是残缺非闭合的，需要对其余标注坐标进行新一轮的循环判断
             for j_2,p_list_2 in enumerate(regions_list):
-                while j_2 != j and dist(p_list[-1],p_list_2[0]) < 150 and j_2 not in pin_jie_flag:
-                    p_list = p_list + p_list_2.copy()
-                    # 当这组非闭合的尾坐标和其他组坐标的首坐标接近到一定范围时(距离是150内),就让当前的非闭合的坐标列表和该组坐标列表相加
-                    pin_jie_flag.append(j_2)
+                if j_2 != j and j_2 not in pin_jie_flag:
+
+                    if dist(p_list[-1],p_list_2[0]) < 50 :
+                        p_list = p_list + p_list_2.copy()
+                        pin_jie_flag.append(j_2)
+                    elif dist(p_list[0],p_list_2[-1]) < 50 :
+                        p_list = p_list_2.copy() + p_list
+                        pin_jie_flag.append(j_2)
+                    elif dist(p_list[-1],p_list_2[-1]) < 50 :
+                        p_list_2_new = copy.deepcopy(p_list_2)
+                        p_list_2_new.reverse()
+                        p_list = p_list + p_list_2_new
+                        pin_jie_flag.append(j_2)
+                    elif dist(p_list[0],p_list_2[0]) < 50 :
+                        p_list_2_new = copy.deepcopy(p_list_2)
+                        p_list_2_new.reverse()
+                        p_list = p_list_2_new + p_list
+                        pin_jie_flag.append(j_2)
+                    # 当这组非闭合的尾坐标和其他组坐标的首坐标接近到一定范围时(距离是150内),就让当前的非闭合的坐标列表和该组坐标列表相加                        
                     # 处理完毕之后，将该组坐标的序号增加到已拼接坐标的列表中，确保后续循环不会再判断这个列表
             single_list.append(p_list)
-            
+
+  
     for points in single_list:
         dr.polygon(points, fill="#ffffff")
             
@@ -137,99 +154,165 @@ def region_binary_image(tile, region_list,region_class, level_downsample):
     return filter_matrix
 
 
-
-from shapely import affinity
-from shapely.geometry import Point, Polygon, LinearRing
-
-
-class PointPolygon:
-    def point(self, coordinate):
-        """
-        generate shapely point object
-        :param coordinate: coordinate, python tuple: (x, y)
-        :return:
-        """
-
-        return Point(coordinate)
-
-    def polygon(self, coordinates):
-        """
-        generate shapely polygon object
-        :param coordinates:  list of coordinate, [(x1, y1), (x2, y2)]
-        :return:
-        """
-
-        return Polygon(coordinates)
-
-    def ellipse(self, point1, point2):
-        """
-        generate ellipse polygon object
-
-        ellipse = ((x_center, y_center), (a, b), angle):
-            (x_center, y_center): center point (x,y) coordinates,
-            (a,b): the two semi-axis values (along x, along y),
-            angle: angle in degrees between x-axis of the Cartesian base and the corresponding semi-axis.
-
-        :param point1: the point to inscribed ellipse
-        :param point2: the point to inscribed ellipse
-        :return: ellipse of polygon object
-        ref: https://gis.stackexchange.com/questions/243459/drawing-ellipse-with-shapely
-        """
-
-        x_center, y_center = (point1[0] + point2[0]) / 2, (point1[1] + point2[1]) / 2
-        a, b = abs(point1[0] - point2[0]) / 2, abs(point1[1] - point2[1]) / 2
-        ellipse = ((x_center, y_center), (a, b), 90)
-        circ = Point(ellipse[0]).buffer(1)
-        ell = affinity.scale(circ, int(ellipse[1][0]), int(ellipse[1][1]))
-        elrv = affinity.rotate(ell, 90 - ellipse[2])
-
-        return elrv
-
-    def polygon_bound(self, polygon):
-        """
-        get the boundary of the polygon, that is LinearRing
-        :param polygon: polygon
-        :return:
-        """
-
-        return LinearRing(list(polygon.exterior.coords))
-
-    def point_pylygon_position(self, point, polygon):
-        """
-        check the point is inside or outside the polygon
-        :param point: the point
-        :param polygon: the polygon
-        :return: true -- point inside polygon, false -- point outside polygon (include the boundary)
-        """
-
-        return point.within(polygon)
-
-    def point_polygon_distance(self, point, polygon):
-        """
-        get the distance from point to polygon
-        :param point: the point
-        :param polygon: the polygon
-        :return:
-        """
-
-        linearRing = self.polygon_bound(polygon)
-
-        return point.distance(linearRing)
-
-
-def point_position(coordinate, region):
+class Region:
+    """"
+    handle the template xml format file to insert label svs region
     """
-    check the point is inside or outside the region
-    :param coordinate: the point to be checked, python tuple: (X, Y)
-    :param region: the region, python list: [(X1, Y1), (X2, Y2)]
-    :return: (boolean, float) -- > (false[outside] / true[inside], distance))
+    def __init__(self, xml_file):
+        parser = ET.XMLParser(remove_blank_text=True)
+        if not os.path.isfile(xml_file):
+            template = os.path.join(current_path, "template.xml")
+            shutil.copy(template, xml_file)
+        self._xml_file = xml_file
+        self._tree = ET.parse(xml_file, parser)
+
+    def get_region(self, region_id):
+        """
+        get region by region id
+        :param region_id: region id, 0: green, 1: yellow, 2: red, see the template.xml
+        :return: the region
+        """
+
+        return self._tree.findall(".//Annotation/Regions")[region_id]
+
+    def add(self, region_id, points):
+        """
+        add one region to the specified region by region id, the added region is ellipse
+        and the parameter points is a rectangle bounded by an ellipse
+        :param points: list with two element(upper-left, bottom-right), is the rectangle bounded by an ellipse
+        :return:
+        """
+
+        region = self.get_region(region_id)
+        region_num = len(region.findall(".//Region"))
+        region_attr = {
+            "Id": str(region_num+1),
+            "Type": "2",
+            "Zoom": "1",
+            "Selected": "1",
+            "ImageLocation": "",
+            "ImageFocus": "0",
+            "Length": "80",
+            "Area": "400",
+            "LengthMicrons": "20",
+            "AreaMicrons": "30",
+            "Text": "",
+            "NegativeROA": "0",
+            "InputRegionId": "0",
+            "Analyze": "0",
+            "DisplayId": "1"
+        }
+
+        region_tag = ET.Element("Region", region_attr)
+        region.append(region_tag)
+
+        attributes = ET.SubElement(region_tag, "Attributes")
+        vertices = ET.Element("Vertices")
+        region_tag.append(vertices)
+
+        for point in points:
+            # insert point
+            ET.SubElement(vertices, "Vertex", attrib=point)
+
+    def save(self):
+        """
+        save the xml file
+        :return:
+        """
+
+        self._tree.write(self._xml_file, pretty_print=True)
+        
+
+def color_int_to_str(color_int):
+    color_str = hex(color_int)[2:]
+    assert len(color_str) <= 6, 'Found unknow color!'
+    pad_count = 6 - len(color_str)
+    color_str = ''.join(['0'] * pad_count) + color_str
+    b, g, r = color_str[0:2], color_str[2:4], color_str[4:6]
+    return r+g+b
+
+
+def color_str_to_int(color_str):
+    assert len(color_str) == 6, 'Found unknow color!'
+    r, g, b = color_str[0:2], color_str[2:4], color_str[4:6]
+    color_int = (int(r, 16)) + (int(g, 16) << 8) + (int(b, 16) << 16)
+    return color_int
+
+
+def contours_to_xml(savepath,contours,level_downsample = 16,mpp= "0.252100",linecolor ="16711680",contour_area_threshold=2000):
     """
+    based on a mask of svs file(mask sure the size of the mask equals the size of svs file 's level_dimensions in level 2) to make a
+    xml file for this svs file
+    :param savepath :  the xml file save file path
+    :param contours :  contours list return from cv2.findContours
+    :param level_downsample : the value of slide.level_downsamples[2]
+    :param mpp : the value of MicronsPerPixel in slide.properties['openslide.mpp-x']
+    :param linecolor : the value of decimal color code to draw contours in xml file ,default color is blue
+    :param contour_area_threshold : the threshold to drop contours base on cv2.contourArea,which helps to keep the big area contours in xml file
+    :return:
+    """    
+    Annotations = ET.Element('Annotations', {'MicronsPerPixel': mpp})
+    Annotation = ET.SubElement(Annotations, 'Annotation',
+                                          {'Id': str(1), 'Name': '', 'ReadOnly': '0', 'NameReadOnly': '0',
+                                           'LineColorReadOnly': '0', 'Incremental': '0', 'Type': '4',
+                                           'LineColor': linecolor, 'Visible': '1', 'Selected': '1',
+                                           'MarkupImagePath': '', 'MacroName': ''})
+    Attributes = ET.SubElement(Annotation, 'Attributes')
+    ET.SubElement(Attributes, 'Attribute', {'Name': '', 'Id': '0', 'Value': ''})
+    Regions = ET.SubElement(Annotation, 'Regions')
+    RegionAttributeHeaders = ET.SubElement(Regions, 'RegionAttributeHeaders')
+    ET.SubElement(RegionAttributeHeaders, 'AttributeHeader',
+                             {'Id': "9999", 'Name': 'Region', 'ColumnWidth': '-1'})
+    ET.SubElement(RegionAttributeHeaders, 'AttributeHeader',
+                             {'Id': "9997", 'Name': 'Length', 'ColumnWidth': '-1'})
+    ET.SubElement(RegionAttributeHeaders, 'AttributeHeader',
+                             {'Id': "9996", 'Name': 'Area', 'ColumnWidth': '-1'})
+    ET.SubElement(RegionAttributeHeaders, 'AttributeHeader',
+                             {'Id': "9998", 'Name': 'Text', 'ColumnWidth': '-1'})
+    ET.SubElement(RegionAttributeHeaders, 'AttributeHeader',
+                             {'Id': "1", 'Name': 'Description', 'ColumnWidth': '-1'})
+    i = 1
+    for cnt in contours:
+        contour_area = cv2.contourArea(cnt)
+        if contour_area > contour_area_threshold:
+            Region = ET.SubElement(Regions, 'Region',
+                                          {'Id': str(i), 'Type': '0', 'Zoom': '0.011', 'Selected': '0',
+                                           'ImageLocation': '', 'ImageFocus': '-1', 'Length': str(cnt.shape[0]), 'Area': str(level_downsample**2*contour_area),
+                                           'LengthMicrons': '0', 'AreaMicrons': '0', 'Text': '', 'NegativeROA': '0',
+                                           'InputRegionId': '0', 'Analyze': '1', 'DisplayId': str(i)})
+            ET.SubElement(Region, 'Attributes')
+            Vertices = ET.SubElement(Region, 'Vertices')
+            cnt = np.squeeze(np.asarray(cnt))
+            for j in range(cnt.shape[0]):
+                ET.SubElement(Vertices, 'Vertex', {'X': str(cnt[j,0]*level_downsample), 'Y': str(cnt[j,1]*level_downsample)})
+            i = i + 1
+    ET.SubElement(Annotation, 'Plots')
+    doc = ET.ElementTree(Annotations)
+    doc.write(open(savepath, "wb"), pretty_print=True)
 
-    point_polygon = PointPolygon()
-    point = point_polygon.point(coordinate)
-    polygon = point_polygon.polygon(region)
-    position = point_polygon.point_pylygon_position(point, polygon)
-    distance = point_polygon.point_polygon_distance(point, polygon)
-
-    return position, distance
-
+if __name__ == '__main__':
+    import sys
+    sys.path.append('../')
+    from utils.openslide_utils import Slide
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.figsize'] = 15, 15
+    slide = Slide('your svs file path/filename.svs')
+#    xml_file = 'your svs label file path'
+#    tile = slide.get_thumb()#获取2级采样下的全片截图
+#    region_list,region_class= xml_to_region(xml_file)
+    # 在这里使用xml_utils的方法进行指定区域提取(最终返回的是个True False矩阵)
+#    region_process_mask = region_binary_image(tile, region_list, region_class,slide.get_level_downsample())
+#    # 根据上述返回的标注坐标列表生成WSI原图2级采样大小的True False矩阵
+#    region_label = region_handler(tile, region_list, slide.get_level_downsample())
+#    plt.imshow()
+#    plt.imshow(region_process_mask)
+    mask_result = np.load('your svs mask result file path')
+    if cv2.__version__[0]=='4':
+        cnts, _ = cv2.findContours(mask_result,mode=cv2.RETR_EXTERNAL,method=cv2.CHAIN_APPROX_SIMPLE)
+    else:
+        _, cnts , _ = cv2.findContours(mask_result,mode=cv2.RETR_EXTERNAL,method=cv2.CHAIN_APPROX_SIMPLE)
+        
+    savepath = 'your svs file path/filename.xml'
+    mpp = str(slide.get_mpp()*1000)
+    level_downsample = slide.get_level_downsample()
+    contours_to_xml(savepath,cnts)
