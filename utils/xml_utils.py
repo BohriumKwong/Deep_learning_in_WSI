@@ -239,21 +239,32 @@ def color_str_to_int(color_str):
     return color_int
 
 
-def contours_to_xml(savepath,contours,level_downsample = 16,mpp= "0.252100",linecolor ="16711680",contour_area_threshold=2000):
+def contours_to_xml(savepath,contours,if_add = False,level_downsample = 16,mpp= "0.252100",linecolor ="16711680",contour_area_threshold=2000):
     """
-    based on a mask of svs file(mask sure the size of the mask equals the size of svs file 's level_dimensions in level 2) to make a
-    xml file for this svs file
-    :param savepath :  the xml file save file path
-    :param contours :  contours list return from cv2.findContours
+    based on a mask of svs file(mask sure the size of the mask equals the size of the svs file 's level_dimensions in level 2) to make a
+    xml format lable file for this svs file
+    :param savepath :  the xml format lable file save file path
+    :param contours :  contours list return from cv2.findContours of the mask
+    :param if_add : Added niew Annotation to an exits xml format label file or not ,defaut False
     :param level_downsample : the value of slide.level_downsamples[2]
     :param mpp : the value of MicronsPerPixel in slide.properties['openslide.mpp-x']
-    :param linecolor : the value of decimal color code to draw contours in xml file ,default color is blue
-    :param contour_area_threshold : the threshold to drop contours base on cv2.contourArea,which helps to keep the big area contours in xml file
+    :param linecolor : the value of decimal color code to draw contours in xml format lable file ,default color is blue
+    :param contour_area_threshold : the threshold to drop small contours base on cv2.contourArea,which helps to keep the big area contours in xml format lable  file
     :return:
-    """    
+    """
+    ann_begin_tag = 1
     Annotations = ET.Element('Annotations', {'MicronsPerPixel': mpp})
+    origin_color_list = []
+    if if_add and os.path.exists(savepath):
+        origin = ET.parse(savepath)
+        ann_begin_tag = len(origin.findall('.//Annotation')) + 1
+        for ann in origin.findall('.//Annotation'):
+            origin_color_list.append(ann.attrib['LineColor'])
+            Annotations.append(ann)
+                               
+    if linecolor in origin_color_list: linecolor = "13382297"
     Annotation = ET.SubElement(Annotations, 'Annotation',
-                                          {'Id': str(1), 'Name': '', 'ReadOnly': '0', 'NameReadOnly': '0',
+                                          {'Id': str(ann_begin_tag), 'Name': '', 'ReadOnly': '0', 'NameReadOnly': '0',
                                            'LineColorReadOnly': '0', 'Incremental': '0', 'Type': '4',
                                            'LineColor': linecolor, 'Visible': '1', 'Selected': '1',
                                            'MarkupImagePath': '', 'MacroName': ''})
