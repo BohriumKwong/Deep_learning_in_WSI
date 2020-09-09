@@ -28,7 +28,7 @@ def xml_to_region(xml_file):
     region_list = []
     region_class = []
     for color in tree.findall('.//Annotation'):
-        if color.attrib['LineColor'] in ['65280','255']:
+        if color.attrib['LineColor'] in ['65280','255','65535']:
             # '65280'是绿色,'255'是红色,可以根据自己的实际情况更改这个判断条件(或者直接if True)
             for region in color.findall('./Regions/Region'):
                 vertex_list = []
@@ -317,11 +317,11 @@ if __name__ == '__main__':
 #    region_label = region_handler(tile, region_list, slide.get_level_downsample())
 #    plt.imshow()
 #    plt.imshow(region_process_mask)
-    mask_result = np.load('your svs mask result file path')
+    region_process_mask = np.load('your svs mask result file path')
     if cv2.__version__[0]=='4':
-        cnts, _ = cv2.findContours(mask_result,mode=cv2.RETR_EXTERNAL,method=cv2.CHAIN_APPROX_SIMPLE)
+        cnts, _ = cv2.findContours(region_process_mask,mode=cv2.RETR_EXTERNAL,method=cv2.CHAIN_APPROX_SIMPLE)
     else:
-        _, cnts , _ = cv2.findContours(mask_result,mode=cv2.RETR_EXTERNAL,method=cv2.CHAIN_APPROX_SIMPLE)
+        _, cnts , _ = cv2.findContours(region_process_mask,mode=cv2.RETR_EXTERNAL,method=cv2.CHAIN_APPROX_SIMPLE)
         
     savepath = 'your svs file path/filename.xml'
     mpp = str(slide.get_mpp()*1000)
