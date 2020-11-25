@@ -62,14 +62,15 @@ def region_handler(im, region_list,region_class, level_downsample):
                 X, Y = int(float(point['X'])/level_downsample), int(float(point['Y'])/level_downsample)
                 point_list.append((X, Y))
 
-
 #        points_length = len(point_list)
-            x_max = max(point_list, key=lambda point: point[0])[0]
-            x_min = min(point_list, key=lambda point: point[0])[0]
-            y_max = max(point_list, key=lambda point: point[1])[1]
-            y_min = min(point_list, key=lambda point: point[1])[1]
+#            x_max = max(point_list, key=lambda point: point[0])[0]
+#            x_min = min(point_list, key=lambda point: point[0])[0]
+#            y_max = max(point_list, key=lambda point: point[1])[1]
+#            y_min = min(point_list, key=lambda point: point[1])[1]
             # mislabeled, here checked by x and y coordinate max and min difference
-            if (x_max - x_min < 50) or (y_max - y_min < 50): continue
+            #if (x_max - x_min < 50) or (y_max - y_min < 50): continue
+        ## 上述这个逻辑很容易过滤小轮廓而不显示，暂且将其注释掉. ——by Bohrium Kwong 20201125
+            
             if region_class[r_class] == '3':
                 dr.arc(point_list, 0, 360, fill='#000000', width=12)
             else:
@@ -77,7 +78,7 @@ def region_handler(im, region_list,region_class, level_downsample):
 
     return im
 
-def region_binary_image(tile, region_list,region_class, level_downsample):
+def region_binary_image(tile, region_list,region_class, level_downsample,label_correction = True):
     """
     convert the region labeled or not by doctor to binary image
     :param tile: a return image based on the method of Slide class object in 'utils.openslide_utils'
@@ -86,6 +87,7 @@ def region_binary_image(tile, region_list,region_class, level_downsample):
     :param region_class : list,keep the value of region.attrib.get('Type') in elements of region list
                     eg : [0,0,0,1,2,3]
     :param level_downsample: slide level down sample
+    :param label_correction: label correctting or not 
     :return: image painted in region line of numpy array format
     """
     im = Image.new(mode="1", size=tile.size)
@@ -99,57 +101,64 @@ def region_binary_image(tile, region_list,region_class, level_downsample):
                 point_list.append((X, Y))
 
             regions_list.append(point_list)
-
-    #由于医生的标注会出现不连续(非闭合)的情况，导致提取出来的标注坐标列表，会分成多段，比如：
-    #            0 (1979, 798) (2144, 1479)
-    #            1 (2139, 1483) (2319, 2162)
-    #            2 (2308, 2160) (3003, 1646)
-    # 正常情况下，标注坐标列表应该收尾闭合(前后坐标一致)，上下列表之间差异应该较大，如：
-    #            12 (1177, 2986) (1177, 2986)
-    #            13 (1507, 2942) (1507, 2940)
-    # 针对上述第一种情况，需要对提出出来的标注坐标列表进行循环判断，对收尾不一而且和其他标注列表的首坐标相对较近的话，进行合并处理
-
-    pin_jie_flag = [] #存储已经被拼接过的标注坐标列表序号                  
-    single_list = [] #存储新标注坐标列表的列表          
-    for j,p_list in enumerate(regions_list):
-        if dist(p_list[0], p_list[-1]) < 50 and j not in pin_jie_flag:
-        #如果收尾坐标距离相差在150范围内(曼哈顿距离)，且未成被拼接过，直接认为这个组坐标无须拼接，存储起来
-            single_list.append(p_list)                
-        elif dist(p_list[0], p_list[-1]) > 50 and j not in pin_jie_flag:
-        #如果收尾坐标距离相差在150范围外(曼哈顿距离)，且未成被拼接过，说明这组坐标是残缺非闭合的，需要对其余标注坐标进行新一轮的循环判断
-            for j_2,p_list_2 in enumerate(regions_list):
-                if j_2 != j and j_2 not in pin_jie_flag:
-
-                    if dist(p_list[-1],p_list_2[0]) < 50 :
-                        p_list = p_list + p_list_2.copy()
-                        pin_jie_flag.append(j_2)
-                    elif dist(p_list[0],p_list_2[-1]) < 50 :
-                        p_list = p_list_2.copy() + p_list
-                        pin_jie_flag.append(j_2)
-                    elif dist(p_list[-1],p_list_2[-1]) < 50 :
-                        p_list_2_new = copy.deepcopy(p_list_2)
-                        p_list_2_new.reverse()
-                        p_list = p_list + p_list_2_new
-                        pin_jie_flag.append(j_2)
-                    elif dist(p_list[0],p_list_2[0]) < 50 :
-                        p_list_2_new = copy.deepcopy(p_list_2)
-                        p_list_2_new.reverse()
-                        p_list = p_list_2_new + p_list
-                        pin_jie_flag.append(j_2)
-                    # 当这组非闭合的尾坐标和其他组坐标的首坐标接近到一定范围时(距离是150内),就让当前的非闭合的坐标列表和该组坐标列表相加                        
-                    # 处理完毕之后，将该组坐标的序号增加到已拼接坐标的列表中，确保后续循环不会再判断这个列表
-            single_list.append(p_list)
-
-  
-    for points in single_list:
-        dr.polygon(points, fill="#ffffff")
+    
+    if label_correction:
+    # 考虑到有些读取xml的场景是针对分割生成的结果，有一些非常小的区域，故在这里新增一个label_correction参数，只有其值为True的时候才执行修正
+    #   ——by Bohrium.kwong 2020.11.25
+    
+        #由于医生的标注会出现不连续(非闭合)的情况，导致提取出来的标注坐标列表，会分成多段，比如：
+        #            0 (1979, 798) (2144, 1479)
+        #            1 (2139, 1483) (2319, 2162)
+        #            2 (2308, 2160) (3003, 1646)
+        # 正常情况下，标注坐标列表应该收尾闭合(前后坐标一致)，上下列表之间差异应该较大，如：
+        #            12 (1177, 2986) (1177, 2986)
+        #            13 (1507, 2942) (1507, 2940)
+        # 针对上述第一种情况，需要对提出出来的标注坐标列表进行循环判断，对收尾不一而且和其他标注列表的首坐标相对较近的话，进行合并处理
+        
+        pin_jie_flag = [] #存储已经被拼接过的标注坐标列表序号                  
+        single_list = [] #存储新标注坐标列表的列表          
+        for j,p_list in enumerate(regions_list):
+            if dist(p_list[0], p_list[-1]) < 50 and j not in pin_jie_flag:
+            #如果首尾坐标距离相差在150范围内(曼哈顿距离)，且未成被拼接过，直接认为这个组坐标无须拼接，存储起来
+                single_list.append(p_list)                
+            elif dist(p_list[0], p_list[-1]) > 50 and j not in pin_jie_flag:
+            #如果首尾坐标距离相差在150范围外(曼哈顿距离)，且未成被拼接过，说明这组坐标是残缺非闭合的，需要对其余标注坐标进行新一轮的循环判断
+                for j_2,p_list_2 in enumerate(regions_list):
+                    if j_2 != j and j_2 not in pin_jie_flag:
+    
+                        if dist(p_list[-1],p_list_2[0]) < 50 :
+                            p_list = p_list + p_list_2.copy()
+                            pin_jie_flag.append(j_2)
+                        elif dist(p_list[0],p_list_2[-1]) < 50 :
+                            p_list = p_list_2.copy() + p_list
+                            pin_jie_flag.append(j_2)
+                        elif dist(p_list[-1],p_list_2[-1]) < 50 :
+                            p_list_2_new = copy.deepcopy(p_list_2)
+                            p_list_2_new.reverse()
+                            p_list = p_list + p_list_2_new
+                            pin_jie_flag.append(j_2)
+                        elif dist(p_list[0],p_list_2[0]) < 50 :
+                            p_list_2_new = copy.deepcopy(p_list_2)
+                            p_list_2_new.reverse()
+                            p_list = p_list_2_new + p_list
+                            pin_jie_flag.append(j_2)
+                        # 当这组非闭合的尾坐标和其他组坐标的首坐标接近到一定范围时(距离是150内),就让当前的非闭合的坐标列表和该组坐标列表相加                        
+                        # 处理完毕之后，将该组坐标的序号增加到已拼接坐标的列表中，确保后续循环不会再判断这个列表
+                single_list.append(p_list)
+        for points in single_list:
+            dr.polygon(points, fill="#ffffff")
             
-    #由于医生的标注除了出现不连续(非闭合)的情况外，还存在多余勾画的情况，对这种情况暂时没有完整的思路予以接近，先用
-    # opencv中的开闭操作组合来进行修补
-    kernel = np.ones((20,20),np.uint8)                                
-    filter_matrix = np.array(im).astype(np.uint8)
-    filter_matrix = cv2.morphologyEx(filter_matrix, cv2.MORPH_OPEN, kernel)
-    filter_matrix = cv2.morphologyEx(filter_matrix, cv2.MORPH_CLOSE, kernel)  
+        #由于医生的标注除了出现不连续(非闭合)的情况外，还存在多余勾画的情况，对这种情况暂时没有完整的思路予以接近，先用
+        # opencv中的开闭操作组合来进行修补
+        kernel = np.ones((15,15),np.uint8)                                
+        filter_matrix = np.array(im).astype(np.uint8)
+        filter_matrix = cv2.morphologyEx(filter_matrix, cv2.MORPH_OPEN, kernel)
+        filter_matrix = cv2.morphologyEx(filter_matrix, cv2.MORPH_CLOSE, kernel)  
+
+    else:
+        for points in regions_list:
+            dr.polygon(points, fill="#ffffff")
+        filter_matrix = np.array(im).astype(np.uint8)
 #    plt.imshow(filter_matrix)              
     return filter_matrix
 
@@ -326,4 +335,4 @@ if __name__ == '__main__':
     savepath = 'your svs file path/filename.xml'
     mpp = str(slide.get_mpp()*1000)
     level_downsample = slide.get_level_downsample()
-    contours_to_xml(savepath,cnts)
+    contours_to_xml(savepath,cnts,True)
