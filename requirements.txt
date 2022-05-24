@@ -1,4 +1,4 @@
-tensorflow-gpu==1.7
+tensorflow-gpu==2.6.4
 keras==2.2.4
 torch==1.0.0
 scikit-image
