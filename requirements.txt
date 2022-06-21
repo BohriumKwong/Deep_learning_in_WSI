@@ -3,7 +3,7 @@ keras==2.2.4
 torch==1.0.0
 scikit-image
 openslide-python
-numpy==1.14.5
+numpy==1.22.0
 opencv-python==4.1.0.25
 spams==2.6.1
 scipy
